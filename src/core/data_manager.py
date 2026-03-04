@@ -74,8 +74,7 @@ def default_goals() -> Dict[str, Any]:
         "weekly_rate": None,
         "target_weight": None,
         "start_weight": None,
-        "calorie_target_mode": "auto",  # "auto" or "manual"
-        "manual_calorie_target": None,
+    
         "created_at": iso_now(),
         "updated_at": iso_now(),
     }
@@ -83,7 +82,14 @@ def default_goals() -> Dict[str, Any]:
 
 def default_config() -> Dict[str, Any]:
     return {
-        "units": "imperial", 
+        # app metadata
+        "schema_version": 1, 
+        "setup_completed": False,
+       
+        # preferences 
+        "units": "imperial",
+        "calorie_target_mode": "auto", # "auto" or "manual" 
+        "manual_calorie_target": None, # null if calorie_target_mode isn't manual
     }
 
 
@@ -93,6 +99,8 @@ _DEFAULTS: Dict[Path, Callable[[], Dict[str, Any]]] = {
     GOALS_PATH: default_goals,
     CONFIG_PATH: default_config,
 }
+
+    
 
 
 # ----------------------------

@@ -1,9 +1,9 @@
 {
-    "name": "",
-    "gender": "",
-    "birthdate": "",
-    "age": "",
-    "height": "",
-    "weight": "",
-    "activity_level": ""
+    "name": "Cameron",
+    "gender": "male",
+    "birthdate": "2000-09-12",
+    "age": 25,
+    "height": 70.0,
+    "weight": 151.0,
+    "activity_level": "sedentary"
 }
