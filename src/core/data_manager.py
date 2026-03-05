@@ -59,11 +59,11 @@ def default_profile() -> Dict[str, Any]:
     """
     return {
         "name": "",
-        "gender": "",
+        "sex_for_bmr": "",
         "birthdate": "",  # YYYY-MM-DD
         "age": "",  # legacy / optional; prefer computing from birthdate
-        "height": "",
-        "weight": "",
+        "height_cm": "",
+        "weight_kg": "",
         "activity_level": "",
     }
 

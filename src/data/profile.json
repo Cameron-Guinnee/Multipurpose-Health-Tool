@@ -1,9 +1,9 @@
 {
     "name": "Cameron",
-    "gender": "male",
+    "sex_for_bmr": "male",
     "birthdate": "2000-09-12",
     "age": 25,
-    "height": 70.0,
-    "weight": 151.0,
+    "height_cm": 177.8,
+    "weight_kg": 68.49244787,
     "activity_level": "sedentary"
 }

@@ -16,6 +16,7 @@ from core.data_manager import (
     _compute_age_years, 
     _parse_positive_number,
 )
+from core.units import imperial_to_metric
 
 
 def is_setup_complete(env: Environment) -> bool: 
@@ -71,37 +72,40 @@ def run_setup_wizard(env: Environment) -> Environment:
 # ---------------------------- 
 def _wizard_profile(env: Environment, units: str) -> None:
     cprint("\n[bold]Profile setup[/bold]")
-    p = env.profile
+    profile = env.profile
 
-    p["name"] = _prompt_optional("Name (optional): ", default=p.get("name", ""))
+    profile["name"] = _prompt_optional("Name (optional): ", default=profile.get("name", ""))
 
     # Keep your existing 'gender' field, but be clear about its use:
     # If you later switch to sex_for_bmr, this is where you'd do it.
-    p["gender"] = _prompt_choice(
-        "Gender for BMR calculation (male/female/other): ",
+    profile["sex_for_bmr"] = _prompt_choice(
+        "Sex for BMR calculation (male/female): ",
         choices=("male", "female", "other"),
-        default=_safe_default_choice(p.get("gender"), ("male", "female", "other"), "other"),
+        default=_safe_default_choice(profile.get("gender"), ("male", "female", "other"), "other"),
     )
 
-    birthdate = _prompt_birthdate("Birthdate (YYYY-MM-DD): ", default=p.get("birthdate", ""))
-    p["birthdate"] = birthdate
+    birthdate = _prompt_birthdate("Birthdate (YYYY-MM-DD): ", default=profile.get("birthdate", ""))
+    profile["birthdate"] = birthdate
 
     # NOTE: 'age' is legacy; store it only if your app still uses it.
     # Prefer computing at runtime from birthdate.
     bd = _parse_birthdate(birthdate)
-    p["age"] = _compute_age_years(bd) if bd else ""
+    profile["age"] = _compute_age_years(bd) if bd else ""
 
     if units == "imperial":
-        p["height"] = _prompt_number("Height (inches): ", min_=1, default=p.get("height"))
-        p["weight"] = _prompt_number("Weight (lb): ", min_=1, default=p.get("weight"))
+        imperial_weight = _prompt_number("Weight (lb): ", min_=1, default=profile.get("weight"))
+        imperial_height = _prompt_number("Height (inches): ", min_=1, default=profile.get("height"))
+        metric_weight,metric_height = imperial_to_metric(imperial_weight, imperial_height) 
+        profile["weight_kg"] = metric_weight
+        profile["height_cm"] = metric_height 
     else:
-        p["height"] = _prompt_number("Height (cm): ", min_=1, default=p.get("height"))
-        p["weight"] = _prompt_number("Weight (kg): ", min_=1, default=p.get("weight"))
+        profile["weight_kg"] = _prompt_number("Weight (kg): ", min_=1, default=profile.get("weight"))
+        profile["height_cm"] = _prompt_number("Height (cm): ", min_=1, default=profile.get("height"))
 
-    p["activity_level"] = _prompt_choice(
+    profile["activity_level"] = _prompt_choice(
         "Activity level (sedentary/light/moderate/very/extra): ",
         choices=("sedentary", "light", "moderate", "very", "extra"),
-        default=_safe_default_choice(p.get("activity_level"), ("sedentary","light","moderate","very","extra"), "moderate"),
+        default=_safe_default_choice(profile.get("activity_level"), ("sedentary","light","moderate","very","extra"), "moderate"),
     )    
 
 def _wizard_goals(env: Environment, units: str) -> None:
@@ -116,7 +120,7 @@ def _wizard_goals(env: Environment, units: str) -> None:
     g["goal_type"] = goal_type
 
     # Start weight default from profile weight if available
-    profile_weight = env.profile.get("weight")
+    profile_weight = env.profile.get("weight_kg")
     if g.get("start_weight") in (None, "", 0) and profile_weight not in (None, ""):
         g["start_weight"] = profile_weight
 
