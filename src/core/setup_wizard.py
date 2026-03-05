@@ -26,7 +26,7 @@ def is_setup_complete(env: Environment) -> bool:
     
     # Minimal profile readiness 
     profile = env.profile or {} 
-    required_profile = ("birthdate", "height", "weight", "activity_level") 
+    required_profile = ("birthdate", "sex_for_bmr", "height_cm", "weight_kg", "activity_level") 
     if not all(str(profile.get(k, "")).strip() for k in required_profile):
         return False 
     
@@ -80,8 +80,8 @@ def _wizard_profile(env: Environment, units: str) -> None:
     # If you later switch to sex_for_bmr, this is where you'd do it.
     profile["sex_for_bmr"] = _prompt_choice(
         "Sex for BMR calculation (male/female): ",
-        choices=("male", "female", "other"),
-        default=_safe_default_choice(profile.get("gender"), ("male", "female", "other"), "other"),
+        choices=("male", "female"),
+        default=_safe_default_choice(profile.get("sex_for_bmr"), ("male", "female"), None),
     )
 
     birthdate = _prompt_birthdate("Birthdate (YYYY-MM-DD): ", default=profile.get("birthdate", ""))
@@ -105,7 +105,7 @@ def _wizard_profile(env: Environment, units: str) -> None:
     profile["activity_level"] = _prompt_choice(
         "Activity level (sedentary/light/moderate/very/extra): ",
         choices=("sedentary", "light", "moderate", "very", "extra"),
-        default=_safe_default_choice(profile.get("activity_level"), ("sedentary","light","moderate","very","extra"), "moderate"),
+        default=_safe_default_choice(profile.get("activity_level"), ("sedentary", "light", "moderate", "very", "extra"), "moderate"),
     )    
 
 def _wizard_goals(env: Environment, units: str) -> None:
