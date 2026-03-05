@@ -3,7 +3,7 @@ import traceback
 from core import data_manager 
 from core.setup_wizard import is_setup_complete,run_setup_wizard
 from core.console_manager import cprint,cinput,clear_console
-
+from core.menu_manager import get_menu 
 
 
 def main():
@@ -11,6 +11,12 @@ def main():
     env = data_manager.ensure_environment()
     if not is_setup_complete(env): 
         env = run_setup_wizard(env)
+    run_main_menu = get_menu("main_menu")
+    run_main_menu(env) 
+    
+    
+    
+    
     
     
 if __name__ == "__main__":
