@@ -1,5 +1,4 @@
-from core.data_manager import Environment
-from typing import Callable 
+from typing import Callable, Any 
 from dataclasses import dataclass 
 
 
@@ -7,4 +6,4 @@ from dataclasses import dataclass
 class MenuItem:
     key: str
     label: str
-    action: Callable[[Environment], None]
+    action: Callable[[Any], None]

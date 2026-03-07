@@ -13,7 +13,7 @@ def get_menu(menu_name: str):
     }
     
     if not menu_name in MENUS: 
-        ValueError("Invalid menu id")
+        raise ValueError("Invalid menu id")
         
     return MENUS.get(menu_name)
     

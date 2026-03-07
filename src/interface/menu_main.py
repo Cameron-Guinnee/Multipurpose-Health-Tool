@@ -1,8 +1,7 @@
 # src/interface/menu_main.py
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, List
+from typing import List
 
 from core.dashboard_manager import render_main_dashboard 
 from core.console_manager import cprint, cinput, clear_console

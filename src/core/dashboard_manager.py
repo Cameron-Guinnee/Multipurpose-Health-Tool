@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.text import Text
 
 from core.health_manager import get_rmr_from_profile, get_tdee_from_rmr
-from core.units import metric_to_imperial
+from core.units import cm_to_in,kg_to_lb
 
 
 # -------------------------------------------------
@@ -114,7 +114,7 @@ def _format_weight(weight_kg: float | None, units: str) -> str:
 
     units = (units or "").strip().lower()
     if units == "imperial":
-        weight_lb, _ = metric_to_imperial(weight_kg, 0.0)
+        weight_lb = kg_to_lb(weight_kg) 
         return f"{weight_lb:.1f} lb"
     return f"{weight_kg:.1f} kg"
 
@@ -134,7 +134,7 @@ def build_daily_summary(env) -> DailySummary:
     profile = env.profile or {}
     goals = env.goals or {}
     config = env.config or {}
-
+     
     calories_consumed = float(config.get("_debug_calories_consumed", 0.0))
     water_ml = float(config.get("_debug_water_ml", 0.0))
 

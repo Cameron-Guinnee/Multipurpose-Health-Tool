@@ -2,7 +2,7 @@ from __future__ import annotations
  
 from typing import Tuple,Dict,Any 
 
-from core.console_manager import cprint,cinput,clear_console 
+from core.console_manager import cprint,cinput 
 from core.data_manager import (
     Environment,
     CONFIG_PATH, 
@@ -14,7 +14,7 @@ from core.data_manager import (
     _compute_age_years, 
     _parse_positive_number,
 )
-from core.units import imperial_to_metric
+from core.units import lb_to_kg,in_to_cm
 
 
 def is_setup_complete(env: Environment) -> bool: 
@@ -91,11 +91,10 @@ def _wizard_profile(env: Environment, units: str) -> None:
     profile["age"] = _compute_age_years(bd) if bd else ""
 
     if units == "imperial":
-        imperial_weight = _prompt_number("Weight (lb): ", min_=1, default=profile.get("weight"))
-        imperial_height = _prompt_number("Height (inches): ", min_=1, default=profile.get("height"))
-        metric_weight,metric_height = imperial_to_metric(imperial_weight, imperial_height) 
-        profile["weight_kg"] = metric_weight
-        profile["height_cm"] = metric_height 
+        imperial_weight = _prompt_number("Weight (lb): ", min_=1, default=profile.get("weight_kg"))
+        imperial_height = _prompt_number("Height (inches): ", min_=1, default=profile.get("height_cm")) 
+        profile["weight_kg"] = lb_to_kg(imperial_weight)
+        profile["height_cm"] = in_to_cm(imperial_height) 
     else:
         profile["weight_kg"] = _prompt_number("Weight (kg): ", min_=1, default=profile.get("weight_kg"))
         profile["height_cm"] = _prompt_number("Height (cm): ", min_=1, default=profile.get("height_cm"))
@@ -128,8 +127,10 @@ def _wizard_goals(env: Environment, units: str) -> None:
         g["target_weight"] = None
     else:
         if units == "imperial":
-            g["weekly_rate"] = _prompt_number("Weekly rate (lb/week, e.g. 0.5): ", min_=0.1, default=g.get("weekly_rate"))
-            g["target_weight"] = _prompt_number("Target weight (lb): ", min_=1, default=g.get("target_weight"))
+            imperial_weekly_rate = _prompt_number("Weekly rate (lb/week, e.g. 0.5): ", min_=0.1, default=g.get("weekly_rate"))
+            imperial_target_weight = _prompt_number("Target weight (lb): ", min_=1, default=g.get("target_weight"))
+            g["weekly_rate"] = lb_to_kg(imperial_weekly_rate)
+            g["target_weight"] = lb_to_kg(imperial_target_weight)  
         else:
             g["weekly_rate"] = _prompt_number("Weekly rate (kg/week, e.g. 0.25): ", min_=0.05, default=g.get("weekly_rate"))
             g["target_weight"] = _prompt_number("Target weight (kg): ", min_=1, default=g.get("target_weight"))
