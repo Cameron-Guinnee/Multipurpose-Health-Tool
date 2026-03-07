@@ -13,10 +13,10 @@ def mifflin_st_jeor_rmr(age: int, sex: str, weight_kg: float, height_cm: float) 
     return rmr 
     
 def get_rmr_from_profile(profile: dict) -> float:  
-    age = int(float(profile["age"])), 
+    age = int(float(profile["age"]))
     sex = profile["sex_for_bmr"] 
-    weight = profile["weight"]
-    height = profile["height"]
+    weight = profile["weight_kg"]
+    height = profile["height_cm"]
     
     return mifflin_st_jeor_rmr(age, sex, weight, height) 
  
@@ -36,17 +36,4 @@ def get_tdee_from_rmr(rmr: float, activity_level: str) -> float:
     return rmr * mults[activity_level]
 
 
-    
-    
-
-# This, at face value, seems a bit unnecessary and redundant? 
-"""
-def tdee_from_profile(profile: dict) -> float: 
-    rmr = mifflin_st_jeor_rmr( 
-        age = int(float(profile["age"])), 
-        gender = profile["gender"], 
-        weight_lb = float(profile["weight"]), 
-        height_in = float(profile["height"]), 
-    ) 
-    return tdee_from_rmr(rmr, profile["activity_level"]) 
-"""
+   

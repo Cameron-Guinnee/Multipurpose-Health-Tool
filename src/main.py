@@ -11,8 +11,10 @@ def main():
     env = data_manager.ensure_environment()
     if not is_setup_complete(env): 
         env = run_setup_wizard(env)
-    run_main_menu = get_menu("main_menu")
-    run_main_menu(env) 
+        
+    MAIN_MENU = "main_menu" 
+    get_menu(MAIN_MENU)(env)
+    
     
     
     

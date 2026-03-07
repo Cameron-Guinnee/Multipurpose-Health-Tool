@@ -1,8 +1,6 @@
 from __future__ import annotations 
-
-from dataclasses import asdict 
-from datetime import datetime 
-from typing import Optional,Tuple,Dict,Any 
+ 
+from typing import Tuple,Dict,Any 
 
 from core.console_manager import cprint,cinput,clear_console 
 from core.data_manager import (
@@ -99,8 +97,8 @@ def _wizard_profile(env: Environment, units: str) -> None:
         profile["weight_kg"] = metric_weight
         profile["height_cm"] = metric_height 
     else:
-        profile["weight_kg"] = _prompt_number("Weight (kg): ", min_=1, default=profile.get("weight"))
-        profile["height_cm"] = _prompt_number("Height (cm): ", min_=1, default=profile.get("height"))
+        profile["weight_kg"] = _prompt_number("Weight (kg): ", min_=1, default=profile.get("weight_kg"))
+        profile["height_cm"] = _prompt_number("Height (cm): ", min_=1, default=profile.get("height_cm"))
 
     profile["activity_level"] = _prompt_choice(
         "Activity level (sedentary/light/moderate/very/extra): ",
