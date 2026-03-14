@@ -28,7 +28,6 @@ if __name__ == "__main__":
         cprint("\n[yellow][!] Interrupted by user. Exiting gracefully. (from main.py)[/yellow]")
         sys.exit(0) 
     except Exception as e: 
-        #cprint(f"\n[red]Fatal error: {e}[/red]")
         cprint(f"[red]{traceback.format_exc()}[/red]")
         sys.exit(1)
 

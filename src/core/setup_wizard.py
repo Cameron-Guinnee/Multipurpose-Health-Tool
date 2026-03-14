@@ -108,6 +108,7 @@ def _wizard_profile(env: Environment, units: str) -> None:
 def _wizard_goals(env: Environment, units: str) -> None:
     cprint("\n[bold]Goals setup[/bold]")
     g = env.goals
+    c = env.config
 
     goal_type = _prompt_choice(
         "Goal type (lose/maintain/gain): ",
@@ -138,9 +139,9 @@ def _wizard_goals(env: Environment, units: str) -> None:
     mode = _prompt_choice(
         "Calorie target mode (auto/manual): ",
         choices=("auto", "manual"),
-        default=_safe_default_choice(g.get("calorie_target_mode"), ("auto","manual"), "auto"),
+        default=_safe_default_choice(c.get("calorie_target_mode"), ("auto","manual"), "auto"),
     )
-    g["calorie_target_mode"] = mode
+    c["calorie_target_mode"] = mode
 
     if mode == "manual":
         g["manual_calorie_target"] = int(_prompt_number("Manual calorie target (kcal/day): ", min_=1, default=g.get("manual_calorie_target")))

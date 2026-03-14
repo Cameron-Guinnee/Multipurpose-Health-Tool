@@ -12,11 +12,12 @@ from interface.common import MenuItem
 
 
 def run_main_menu(env: Environment) -> None:
+    """Main entry menu. Keeps orchestration here, delegates features to actions."""
     FOOD_DIARY_MENU = "food_diary_menu"
     BIOMETRICS_MENU = "biometrics_menu"
     SETTINGS_MENU = "settings_menu"
 
-    """Main entry menu. Keeps orchestration here, delegates features to actions."""
+    
     items: List[MenuItem] = [
         MenuItem("1", "Food Diary (calories & nutrition)", get_menu(FOOD_DIARY_MENU)),
         MenuItem("2", "Biometrics (BP, weight, measurements)", get_menu(BIOMETRICS_MENU)),

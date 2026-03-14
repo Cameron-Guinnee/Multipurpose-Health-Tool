@@ -152,7 +152,7 @@ def build_daily_summary(env) -> DailySummary:
     # Calorie target
     # -------------------------
     goal_type = str(goals.get("goal_type") or "").strip().lower()
-    mode = str(goals.get("calorie_target_mode") or "auto").strip().lower()
+    mode = str(config.get("calorie_target_mode") or "auto").strip().lower()
 
     calorie_target: float | None = None
     planned_delta: float | None = None

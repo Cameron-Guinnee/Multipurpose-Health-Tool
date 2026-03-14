@@ -1,5 +1,5 @@
 from __future__ import annotations 
-
+from core.data_manager import _parse_birthdate,_compute_age_years
 
 def mifflin_st_jeor_rmr(age: int, sex: str, weight_kg: float, height_cm: float) -> float: 
     sex = sex.strip().lower() 
@@ -13,7 +13,11 @@ def mifflin_st_jeor_rmr(age: int, sex: str, weight_kg: float, height_cm: float) 
     return rmr 
     
 def get_rmr_from_profile(profile: dict) -> float:  
-    age = int(float(profile["age"]))
+    bd = _parse_birthdate(profile.get("birthdate", "")) 
+    if bd is None: 
+        raise ValueError("Profile is missing a valid birthdate.") 
+    age = _compute_age_years(bd) 
+   
     sex = profile["sex_for_bmr"] 
     weight = profile["weight_kg"]
     height = profile["height_cm"]
