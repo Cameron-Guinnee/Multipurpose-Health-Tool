@@ -12,10 +12,9 @@ from core.data_manager import (
     iso_now, 
     _parse_birthdate,
     _compute_age_years, 
-    _parse_positive_number,
 )
 from core.units import lb_to_kg,in_to_cm
-
+from interface.prompts import _prompt_birthdate,_prompt_choice,_prompt_number,_prompt_units,_prompt_str
 
 def is_setup_complete(env: Environment) -> bool: 
     cfg = env.config or {} 
@@ -72,7 +71,7 @@ def _wizard_profile(env: Environment, units: str) -> None:
     cprint("\n[bold]Profile setup[/bold]")
     profile = env.profile
 
-    profile["name"] = _prompt_optional("Name (optional): ", default=profile.get("name", ""))
+    profile["name"] = _prompt_str("Name (optional): ", default=profile.get("name", ""))
 
     # Keep your existing 'gender' field, but be clear about its use:
     # If you later switch to sex_for_bmr, this is where you'd do it.
@@ -155,65 +154,6 @@ def _wizard_goals(env: Environment, units: str) -> None:
 # ----------------------------
 # Prompt helpers
 # ----------------------------
-
-def _prompt_units(default: str = "imperial") -> str:
-    cprint("\n[bold]Preferences[/bold]")
-    cprint("Choose your measurement system:")
-    cprint("  1) Imperial (lb/in/oz)")
-    cprint("  2) Metric (kg/cm/ml)")
-    while True:
-        s = cinput(f"Selection [1/2] (default { '1' if default=='imperial' else '2' }): ").strip()
-        if not s:
-            return default
-        if s == "1":
-            return "imperial"
-        if s == "2":
-            return "metric"
-        cprint("[yellow]Please enter 1 or 2.[/yellow]")
-
-
-def _prompt_birthdate(prompt: str, default: str = "") -> str:
-    while True:
-        s = cinput(prompt).strip()
-        if not s and default:
-            s = default.strip()
-        dt = _parse_birthdate(s)
-        if dt is None:
-            cprint("[yellow]Enter a valid date in YYYY-MM-DD (not in the future).[/yellow]")
-            continue
-        return s
-
-
-def _prompt_number(prompt: str, *, min_: float = 0.0, default: Any = None) -> float:
-    """Prompts for a positive float with optional default."""
-    default_str = ""
-    if default not in (None, ""):
-        default_str = f" (default {default})"
-    while True:
-        s = cinput(f"{prompt}{default_str} ").strip()
-        if not s and default not in (None, ""):
-            s = str(default)
-        v = _parse_positive_number(s)
-        if v is None or v < min_:
-            cprint(f"[yellow]Enter a number ≥ {min_}.[/yellow]")
-            continue
-        return float(v)
-
-
-def _prompt_choice(prompt: str, *, choices: Tuple[str, ...], default: str) -> str:
-    choices_set = {c.lower() for c in choices}
-    while True:
-        s = cinput(f"{prompt}(default {default}) ").strip().lower()
-        if not s:
-            return default
-        if s in choices_set:
-            return s
-        cprint(f"[yellow]Choose one of: {', '.join(choices)}[/yellow]")
-
-
-def _prompt_optional(prompt: str, default: str = "") -> str:
-    s = cinput(prompt).strip()
-    return s if s else (default or "")
 
 
 def _safe_units(cfg: Dict[str, Any]) -> str:

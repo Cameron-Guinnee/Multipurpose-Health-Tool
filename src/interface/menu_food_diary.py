@@ -6,6 +6,8 @@ from typing import List
 from rich.table import Table
 from rich.console import Console
 
+from interface.prompts import _prompt_str, _prompt_float, _prompt_choice
+
 from core.console_manager import cprint, cinput, clear_console
 from core.data_manager import Environment
 from core.log_manager import (
@@ -17,8 +19,9 @@ from core.log_manager import (
     get_daily_totals,
 )
 
-MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "uncategorized")
 
+
+MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "uncategorized")
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -196,39 +199,3 @@ def _delete_food(d: date) -> None:
     else:
         cprint("[yellow]No entry found with that ID.[/yellow]")
     cinput("\nPress Enter to continue.")
-
-
-# ---------------------------------------------------------------------------
-# Prompt helpers
-# ---------------------------------------------------------------------------
-def _prompt_str(prompt: str, default: str = "") -> str:
-    display = f"{prompt}(default {default}) " if default else prompt
-    s = cinput(display).strip()
-    return s if s else default
-
-
-def _prompt_float(prompt: str, *, min_: float = 0.0, default: float | None = None) -> float:
-    default_str = f"(default {default}) " if default is not None else ""
-    while True:
-        s = cinput(f"{prompt}{default_str}").strip()
-        if not s and default is not None:
-            return float(default)
-        try:
-            v = float(s)
-            if v < min_:
-                cprint(f"[yellow]Enter a value >= {min_}.[/yellow]")
-                continue
-            return v
-        except ValueError:
-            cprint("[yellow]Please enter a number.[/yellow]")
-
-
-def _prompt_choice(prompt: str, *, choices: tuple, default: str) -> str:
-    choices_set = {c.lower() for c in choices}
-    while True:
-        s = cinput(f"{prompt}(default {default}) ").strip().lower()
-        if not s:
-            return default
-        if s in choices_set:
-            return s
-        cprint(f"[yellow]Choose one of: {', '.join(choices)}[/yellow]")
