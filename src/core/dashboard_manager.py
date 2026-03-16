@@ -12,7 +12,8 @@ from rich.table import Table
 from rich.text import Text
 
 from core.health_manager import get_rmr_from_profile, get_tdee_from_rmr
-from core.units import cm_to_in,kg_to_lb
+from core.log_manager import get_daily_totals, get_latest_weight
+from core.units import cm_to_in, kg_to_lb
 
 
 # -------------------------------------------------
@@ -135,8 +136,9 @@ def build_daily_summary(env) -> DailySummary:
     goals = env.goals or {}
     config = env.config or {}
      
-    calories_consumed = float(config.get("_debug_calories_consumed", 0.0))
-    water_ml = float(config.get("_debug_water_ml", 0.0))
+    totals = get_daily_totals(date.today())
+    calories_consumed = totals["calories"]
+    water_ml = totals["water_ml"]
 
     # -------------------------
     # RMR / TDEE
@@ -199,7 +201,9 @@ def build_daily_summary(env) -> DailySummary:
         except (TypeError, ValueError):
             return None
 
-    current_weight_kg = _safe_float(profile.get("weight_kg"))
+    # Prefer today's logged weight; fall back to profile's stored weight
+    logged_weight_today = get_latest_weight(date.today())
+    current_weight_kg = logged_weight_today if logged_weight_today is not None else _safe_float(profile.get("weight_kg"))
     target_weight_kg = _safe_float(goals.get("target_weight"))
     start_weight_kg = _safe_float(goals.get("start_weight"))
 
