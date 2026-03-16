@@ -1,0 +1,14 @@
+{
+    "foods": [
+        {
+            "id": "7f918c84",
+            "name": "Monster Energy, Voodoo",
+            "calories": 150.0,
+            "protein_g": 0.0,
+            "carbs_g": 39.0,
+            "fat_g": 0.0,
+            "unit": "serving",
+            "quantity": 1.0
+        }
+    ]
+}

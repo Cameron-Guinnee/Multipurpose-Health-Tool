@@ -34,6 +34,7 @@ DATA_DIR = BASE_DIR / "data"
 PROFILE_PATH = DATA_DIR / "profile.json"
 CONFIG_PATH = DATA_DIR / "config.json"
 GOALS_PATH = DATA_DIR / "goals.json"
+CUSTOM_FOODS_PATH = DATA_DIR / "custom_foods.json"
 
 
 # ----------------------------
@@ -93,11 +94,16 @@ def default_config() -> Dict[str, Any]:
     }
 
 
+def default_custom_foods() -> Dict[str, Any]:
+    return {"foods": []}
+
+
 # Map file paths to their default factories
 _DEFAULTS: Dict[Path, Callable[[], Dict[str, Any]]] = {
     PROFILE_PATH: default_profile,
     GOALS_PATH: default_goals,
     CONFIG_PATH: default_config,
+    CUSTOM_FOODS_PATH: default_custom_foods,
 }
 
     

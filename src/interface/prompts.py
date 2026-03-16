@@ -40,7 +40,7 @@ def _prompt_str(prompt: str, default: str = "") -> str:
     return s if s else default
 
 
-def _prompt_number(prompt: str, *, min_: float = 0.0, default: float | None = None) -> float:
+def _prompt_float(prompt: str, *, min_: float = 0.0, default: float | None = None) -> float:
     default_str = f"(default {default}) " if default is not None else ""
     while True:
         s = cinput(f"{prompt}{default_str}").strip()
