@@ -69,8 +69,9 @@ def make_food_entry(
     quantity: float = 1.0,
     unit: str = "serving",
     meal_category: str = "uncategorized",
+    amount_ml: Optional[float] = None,
 ) -> Dict[str, Any]:
-    return {
+    entry: Dict[str, Any] = {
         "id": uuid.uuid4().hex[:6],
         "logged_at": iso_now(),
         "meal_category": meal_category.strip().lower(),
@@ -82,6 +83,9 @@ def make_food_entry(
         "carbs_g": round(carbs_g, 1),
         "fat_g": round(fat_g, 1),
     }
+    if amount_ml is not None:
+        entry["amount_ml"] = round(amount_ml, 1)
+    return entry
 
 
 def make_water_entry(amount_ml: float) -> Dict[str, Any]:
@@ -214,14 +218,27 @@ def delete_entry(d: date, entry_type: str, entry_id: str) -> bool:
 # Daily aggregates  (used by dashboard)
 # ---------------------------------------------------------------------------
 def get_daily_totals(d: date) -> Dict[str, float]:
-    """Return summed nutrition and water totals for a given date."""
+    """Return summed nutrition and water totals for a given date.
+
+    Hydration is sourced from:
+      1. food_entries with meal_category == "drink" that carry an amount_ml field
+      2. Legacy water_entries (kept for backwards compatibility)
+    """
     day = load_day(d)
 
     calories = sum(e.get("calories", 0.0) for e in day["food_entries"])
     protein_g = sum(e.get("protein_g", 0.0) for e in day["food_entries"])
     carbs_g = sum(e.get("carbs_g", 0.0) for e in day["food_entries"])
     fat_g = sum(e.get("fat_g", 0.0) for e in day["food_entries"])
-    water_ml = sum(e.get("amount_ml", 0.0) for e in day["water_entries"])
+
+    # Hydration: new-style drink entries + legacy water_entries
+    drink_ml = sum(
+        e.get("amount_ml", 0.0)
+        for e in day["food_entries"]
+        if e.get("meal_category") == "drink" and "amount_ml" in e
+    )
+    legacy_ml = sum(e.get("amount_ml", 0.0) for e in day["water_entries"])
+    water_ml = drink_ml + legacy_ml
 
     return {
         "calories": round(calories, 1),

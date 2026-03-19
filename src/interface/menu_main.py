@@ -46,4 +46,5 @@ def run_main_menu(env: Environment) -> None:
 
 
 def _quit(env: Environment) -> None:
+    clear_console()
     raise SystemExit(0)

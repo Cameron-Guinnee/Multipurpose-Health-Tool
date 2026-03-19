@@ -5,8 +5,9 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from rich.table import Table
 from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from interface.prompts import _prompt_str, _prompt_float, _prompt_choice
 
@@ -21,12 +22,22 @@ from core.log_manager import (
     delete_entry,
     load_day,
     make_food_entry,
-    make_water_entry,
     get_daily_totals,
 )
 
 
-MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "uncategorized")
+MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "drink", "uncategorized")
+
+_CATEGORY_STYLE: Dict[str, str] = {
+    "breakfast":    "yellow",
+    "lunch":        "green",
+    "dinner":       "cyan",
+    "snack":        "magenta",
+    "drink":        "blue",
+    "uncategorized":"dim",
+}
+
+_CATEGORY_ORDER = ["breakfast", "lunch", "dinner", "snack", "drink", "uncategorized"]
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +45,6 @@ MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "uncategorized")
 # ---------------------------------------------------------------------------
 
 def _load_custom_foods() -> List[Dict[str, Any]]:
-    """Return the list of saved custom food items."""
     if not CUSTOM_FOODS_PATH.exists():
         return []
     try:
@@ -47,7 +57,6 @@ def _load_custom_foods() -> List[Dict[str, Any]]:
 
 
 def _save_custom_foods(foods: List[Dict[str, Any]]) -> None:
-    """Persist the custom foods list atomically."""
     _atomic_write_json(CUSTOM_FOODS_PATH, {"foods": foods})
 
 
@@ -59,8 +68,10 @@ def _make_custom_food(
     fat_g: float,
     unit: str,
     quantity: float,
+    is_drink: bool = False,
+    volume_ml_per_unit: Optional[float] = None,
 ) -> Dict[str, Any]:
-    return {
+    entry: Dict[str, Any] = {
         "id": uuid.uuid4().hex[:8],
         "name": name.strip(),
         "calories": round(calories, 1),
@@ -69,7 +80,11 @@ def _make_custom_food(
         "fat_g": round(fat_g, 1),
         "unit": unit.strip(),
         "quantity": quantity,
+        "is_drink": is_drink,
     }
+    if is_drink and volume_ml_per_unit is not None:
+        entry["volume_ml_per_unit"] = round(volume_ml_per_unit, 1)
+    return entry
 
 
 # ---------------------------------------------------------------------------
@@ -86,22 +101,19 @@ def run_food_diary_menu(env: Environment) -> None:
 
         cprint("\n[bold purple]Food Diary[/bold purple]")
         cprint("[dim]Select an option:[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Log food")
-        cprint("  [cyan]2[/cyan]) Log water")
-        cprint("  [cyan]3[/cyan]) Delete a food entry")
-        cprint("  [cyan]4[/cyan]) Manage custom foods")
+        cprint("  [cyan]1[/cyan]) Log food or drink")
+        cprint("  [cyan]2[/cyan]) Delete an entry")
+        cprint("  [cyan]3[/cyan]) Manage custom foods")
         cprint("  [cyan]b[/cyan]) Back")
 
         choice = cinput("\nChoice: ").strip().lower()
 
         if choice == "1":
-            _log_food(today)
+            _log_entry(today, units)
         elif choice == "2":
-            _log_water(today, units)
-        elif choice == "3":
             _delete_food(today)
-        elif choice == "4":
-            _manage_custom_foods_menu()
+        elif choice == "3":
+            _manage_custom_foods_menu(units)
         elif choice == "b":
             return
         else:
@@ -119,75 +131,121 @@ def _render_food_diary(d: date, units: str) -> None:
     totals = get_daily_totals(d)
 
     food_entries = day.get("food_entries", [])
-    water_entries = day.get("water_entries", [])
 
-    # --- Food table ---
-    food_table = Table(title=f"Food Log — {d.isoformat()}", show_lines=False)
-    food_table.add_column("ID", style="dim", width=6)
-    food_table.add_column("Meal", style="cyan", width=12)
-    food_table.add_column("Food", width=24)
-    food_table.add_column("Qty", justify="right", width=8)
-    food_table.add_column("Cal", justify="right", width=7)
-    food_table.add_column("P (g)", justify="right", width=7)
-    food_table.add_column("C (g)", justify="right", width=7)
-    food_table.add_column("F (g)", justify="right", width=7)
-
+    # Group entries by meal category
+    grouped: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in _CATEGORY_ORDER}
     for e in food_entries:
-        food_table.add_row(
-            e.get("id", "?"),
-            e.get("meal_category", "—").capitalize(),
-            e.get("name", "—"),
-            f"{e.get('quantity', 1):.1f} {e.get('unit', '')}",
-            str(int(e.get("calories", 0))),
-            str(e.get("protein_g", 0)),
-            str(e.get("carbs_g", 0)),
-            str(e.get("fat_g", 0)),
-        )
+        cat = e.get("meal_category", "uncategorized")
+        if cat not in grouped:
+            cat = "uncategorized"
+        grouped[cat].append(e)
 
-    if food_entries:
+    food_table = Table(
+        title=f"[bold]Food & Drink Log[/bold]  [dim]{d.strftime('%A, %B')} {d.day}[/dim]",
+        show_lines=False,
+        show_header=True,
+        header_style="bold",
+        title_justify="left",
+    )
+    food_table.add_column("ID",   style="dim", width=6,  no_wrap=True)
+    food_table.add_column("Meal", width=11, no_wrap=True)
+    food_table.add_column("Item", min_width=20, max_width=32)
+    food_table.add_column("Qty",  justify="right", width=12, no_wrap=True)
+    food_table.add_column("kcal", justify="right", width=6,  no_wrap=True)
+    food_table.add_column("P",    justify="right", width=5,  no_wrap=True)
+    food_table.add_column("C",    justify="right", width=5,  no_wrap=True)
+    food_table.add_column("F",    justify="right", width=5,  no_wrap=True)
+
+    any_entries = any(grouped[cat] for cat in _CATEGORY_ORDER)
+
+    if not any_entries:
+        food_table.add_row("[dim]—[/dim]", "[dim]Nothing logged yet[/dim]", "", "", "", "", "", "")
+    else:
+        first_section = True
+        for cat in _CATEGORY_ORDER:
+            entries = grouped[cat]
+            if not entries:
+                continue
+
+            if not first_section:
+                food_table.add_row("", "", "", "", "", "", "", "")
+            first_section = False
+
+            cat_style = _CATEGORY_STYLE.get(cat, "white")
+
+            for e in entries:
+                qty_str = f"{e.get('quantity', 1):.1f} {e.get('unit', '')}".strip()
+                if e.get("meal_category") == "drink" and "amount_ml" in e:
+                    if units == "imperial":
+                        vol_oz = e["amount_ml"] / 29.5735
+                        qty_str += f" ({vol_oz:.0f} oz)"
+                    else:
+                        qty_str += f" ({e['amount_ml']:.0f} mL)"
+
+                food_table.add_row(
+                    e.get("id", "?"),
+                    Text(cat.capitalize(), style=cat_style),
+                    e.get("name", "—"),
+                    qty_str,
+                    str(int(e.get("calories", 0))),
+                    str(e.get("protein_g", 0)),
+                    str(e.get("carbs_g", 0)),
+                    str(e.get("fat_g", 0)),
+                )
+
+        # Totals footer
         food_table.add_section()
         food_table.add_row(
-            "", "", "[bold]Total[/bold]", "",
-            f"[bold]{int(totals['calories'])}[/bold]",
-            f"[bold]{totals['protein_g']}[/bold]",
-            f"[bold]{totals['carbs_g']}[/bold]",
-            f"[bold]{totals['fat_g']}[/bold]",
+            "", "",
+            Text("Total", style="bold"),
+            "",
+            Text(str(int(totals["calories"])), style="bold"),
+            Text(str(totals["protein_g"]), style="bold"),
+            Text(str(totals["carbs_g"]),   style="bold"),
+            Text(str(totals["fat_g"]),     style="bold"),
         )
 
     console.print(food_table)
 
-    # --- Water summary ---
+    # Hydration summary inline beneath the table
+    water_ml = totals["water_ml"]
+    drink_entries = [e for e in food_entries if e.get("meal_category") == "drink"]
     if units == "imperial":
-        consumed = totals["water_ml"] / 29.5735
-        entries_fmt = [f"{e['amount_ml'] / 29.5735:.0f} oz" for e in water_entries]
-        water_str = f"{consumed:.0f} oz"
+        water_display = f"{water_ml / 29.5735:.0f} oz"
     else:
-        consumed = totals["water_ml"]
-        entries_fmt = [f"{e['amount_ml']:.0f} mL" for e in water_entries]
-        water_str = f"{consumed:.0f} mL"
+        water_display = f"{water_ml:.0f} mL"
 
-    if entries_fmt:
-        cprint(f"[bold]Water:[/bold] {water_str}  [dim]({', '.join(entries_fmt)})[/dim]")
+    if drink_entries:
+        n = len(drink_entries)
+        cprint(
+            f"  [blue]Hydration[/blue]  {water_display}  "
+            f"[dim]({n} drink{'s' if n != 1 else ''})[/dim]"
+        )
     else:
-        cprint(f"[bold]Water:[/bold] {water_str}  [dim](none logged)[/dim]")
+        cprint(f"  [dim]Hydration  {water_display}  (no drinks logged)[/dim]")
 
 
 def _render_custom_foods_table(foods: List[Dict[str, Any]]) -> None:
-    """Print a numbered table of all custom food items."""
     console = Console()
-    table = Table(title="Custom Foods", show_lines=False)
-    table.add_column("#", style="dim", width=4)
-    table.add_column("Name", width=24)
+    table = Table(
+        title="Custom Foods",
+        show_lines=False,
+    )
+    table.add_column("#",          style="dim", width=4)
+    table.add_column("Name",       min_width=20, max_width=28)
+    table.add_column("Type",       width=6)
     table.add_column("Qty / Unit", justify="right", width=12)
-    table.add_column("Cal", justify="right", width=7)
-    table.add_column("P (g)", justify="right", width=7)
-    table.add_column("C (g)", justify="right", width=7)
-    table.add_column("F (g)", justify="right", width=7)
+    table.add_column("kcal",       justify="right", width=6)
+    table.add_column("P",          justify="right", width=5)
+    table.add_column("C",          justify="right", width=5)
+    table.add_column("F",          justify="right", width=5)
 
     for i, f in enumerate(foods, start=1):
+        kind = "[blue]drink[/blue]" if f.get("is_drink") else "food"
         table.add_row(
             str(i),
             f.get("name", "—"),
+            kind,
             f"{f.get('quantity', 1):.1f} {f.get('unit', '')}",
             str(int(f.get("calories", 0))),
             str(f.get("protein_g", 0)),
@@ -202,7 +260,7 @@ def _render_custom_foods_table(foods: List[Dict[str, Any]]) -> None:
 # Custom foods management submenu
 # ---------------------------------------------------------------------------
 
-def _manage_custom_foods_menu() -> None:
+def _manage_custom_foods_menu(units: str) -> None:
     while True:
         clear_console()
         foods = _load_custom_foods()
@@ -214,7 +272,7 @@ def _manage_custom_foods_menu() -> None:
 
         cprint("\n[bold purple]Manage Custom Foods[/bold purple]")
         cprint("[dim]Select an option:[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Add a custom food")
+        cprint("  [cyan]1[/cyan]) Add a custom food or drink")
         if foods:
             cprint("  [cyan]2[/cyan]) Edit a custom food")
             cprint("  [cyan]3[/cyan]) Delete a custom food")
@@ -223,9 +281,9 @@ def _manage_custom_foods_menu() -> None:
         choice = cinput("\nChoice: ").strip().lower()
 
         if choice == "1":
-            _add_custom_food(foods)
+            _add_custom_food(foods, units)
         elif choice == "2" and foods:
-            _edit_custom_food(foods)
+            _edit_custom_food(foods, units)
         elif choice == "3" and foods:
             _delete_custom_food(foods)
         elif choice == "b":
@@ -243,9 +301,11 @@ def _prompt_food_fields(
     fat_default: float = 0.0,
     unit_default: str = "serving",
     quantity_default: float = 1.0,
+    is_drink_default: bool = False,
+    volume_ml_default: Optional[float] = None,
+    units: str = "imperial",
 ) -> Optional[Dict[str, Any]]:
-    """Prompt for all nutrition fields. Returns None if the user cancels."""
-    name = _prompt_str("Food name: ", default=name_default)
+    name = _prompt_str("Name: ", default=name_default)
     if not name:
         return None
 
@@ -256,6 +316,29 @@ def _prompt_food_fields(
     carbs_g = _prompt_float("Carbs (g): ", min_=0.0, default=carbs_default)
     fat_g = _prompt_float("Fat (g): ", min_=0.0, default=fat_default)
 
+    is_drink_str = _prompt_choice(
+        "Is this a drink? (yes/no): ",
+        choices=("yes", "no"),
+        default="yes" if is_drink_default else "no",
+    )
+    is_drink = is_drink_str == "yes"
+
+    volume_ml: Optional[float] = None
+    if is_drink:
+        if units == "imperial":
+            vol_oz = _prompt_float(
+                "Volume per serving (oz): ",
+                min_=0.0,
+                default=round(volume_ml_default / 29.5735, 1) if volume_ml_default else None,
+            )
+            volume_ml = vol_oz * 29.5735
+        else:
+            volume_ml = _prompt_float(
+                "Volume per serving (mL): ",
+                min_=0.0,
+                default=volume_ml_default,
+            )
+
     return dict(
         name=name,
         calories=calories,
@@ -264,25 +347,25 @@ def _prompt_food_fields(
         fat_g=fat_g,
         unit=unit,
         quantity=quantity,
+        is_drink=is_drink,
+        volume_ml_per_unit=volume_ml,
     )
 
 
-def _add_custom_food(foods: List[Dict[str, Any]]) -> None:
+def _add_custom_food(foods: List[Dict[str, Any]], units: str) -> None:
     clear_console()
-    cprint("[bold]Add Custom Food[/bold]\n")
-
-    fields = _prompt_food_fields()
+    cprint("[bold]Add Custom Food or Drink[/bold]\n")
+    fields = _prompt_food_fields(units=units)
     if fields is None:
         return
-
     food = _make_custom_food(**fields)
     foods.append(food)
     _save_custom_foods(foods)
-    cprint(f"[green]✔ '{food['name']}' saved to custom foods.[/green]")
+    cprint(f"[green]✔ '{food['name']}' saved.[/green]")
     cinput("\nPress Enter to continue.")
 
 
-def _edit_custom_food(foods: List[Dict[str, Any]]) -> None:
+def _edit_custom_food(foods: List[Dict[str, Any]], units: str) -> None:
     clear_console()
     _render_custom_foods_table(foods)
     cprint("\n[bold]Edit Custom Food[/bold]")
@@ -310,11 +393,13 @@ def _edit_custom_food(foods: List[Dict[str, Any]]) -> None:
         fat_default=existing.get("fat_g", 0.0),
         unit_default=existing.get("unit", "serving"),
         quantity_default=existing.get("quantity", 1.0),
+        is_drink_default=existing.get("is_drink", False),
+        volume_ml_default=existing.get("volume_ml_per_unit"),
+        units=units,
     )
     if fields is None:
         return
 
-    # Preserve the original ID so diary logs aren't affected
     updated = _make_custom_food(**fields)
     updated["id"] = existing["id"]
     foods[idx] = updated
@@ -347,19 +432,18 @@ def _delete_custom_food(foods: List[Dict[str, Any]]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Actions
+# Logging actions
 # ---------------------------------------------------------------------------
 
-def _log_food(d: date) -> None:
+def _log_entry(d: date, units: str) -> None:
     clear_console()
-    cprint("[bold]Log Food[/bold]\n")
+    cprint("[bold]Log Food or Drink[/bold]\n")
 
     custom_foods = _load_custom_foods()
 
-    # --- Offer quick-pick from custom foods if any are defined ---
     if custom_foods:
         _render_custom_foods_table(custom_foods)
-        cprint("\n[dim]Enter a number to log a custom food, or press Enter to enter manually.[/dim]")
+        cprint("\n[dim]Enter a number to use a saved item, or press Enter to log manually.[/dim]")
         raw = cinput("Selection: ").strip()
 
         if raw:
@@ -368,19 +452,21 @@ def _log_food(d: date) -> None:
                 if not (0 <= idx < len(custom_foods)):
                     raise ValueError
             except ValueError:
-                cprint("[yellow]Invalid selection — falling back to manual entry.[/yellow]\n")
+                cprint("[yellow]Invalid selection — continuing to manual entry.[/yellow]\n")
             else:
-                template = custom_foods[idx]
-                _log_food_from_template(d, template)
+                _log_from_template(d, custom_foods[idx], units)
                 return
 
-    # --- Manual entry ---
-    name = _prompt_str("Food name: ")
+    _log_manually(d, units)
+
+
+def _log_manually(d: date, units: str) -> None:
+    name = _prompt_str("Name: ")
     if not name:
         return
 
     meal_category = _prompt_choice(
-        f"Meal category ({'/'.join(MEAL_CATEGORIES)}): ",
+        f"Category ({'/'.join(MEAL_CATEGORIES)}): ",
         choices=MEAL_CATEGORIES,
         default="uncategorized",
     )
@@ -392,6 +478,15 @@ def _log_food(d: date) -> None:
     carbs_g = _prompt_float("Carbs (g): ", min_=0.0, default=0.0)
     fat_g = _prompt_float("Fat (g): ", min_=0.0, default=0.0)
 
+    amount_ml: Optional[float] = None
+    if meal_category == "drink":
+        if units == "imperial":
+            oz = _prompt_float("Volume (oz, 0 to skip): ", min_=0.0, default=0.0)
+            amount_ml = oz * 29.5735 if oz > 0 else None
+        else:
+            ml = _prompt_float("Volume (mL, 0 to skip): ", min_=0.0, default=0.0)
+            amount_ml = ml if ml > 0 else None
+
     entry = make_food_entry(
         name=name,
         calories=calories,
@@ -401,27 +496,26 @@ def _log_food(d: date) -> None:
         quantity=quantity,
         unit=unit,
         meal_category=meal_category,
+        amount_ml=amount_ml,
     )
     append_entry(d, "food_entries", entry)
     cprint(f"[green]✔ Logged {name} ({int(calories)} kcal)[/green]")
     cinput("\nPress Enter to continue.")
 
 
-def _log_food_from_template(d: date, template: Dict[str, Any]) -> None:
-    """Log a diary entry pre-filled from a custom food template.
+def _log_from_template(d: date, template: Dict[str, Any], units: str) -> None:
+    is_drink = template.get("is_drink", False)
+    cprint(
+        f"\n[bold]{template['name']}[/bold]  "
+        f"[dim]{int(template['calories'])} kcal / "
+        f"{template['quantity']} {template['unit']}[/dim]\n"
+    )
 
-    The user can adjust the quantity (and therefore scale all macros) and
-    choose a meal category, but nutritional values per unit come from the
-    template so they don't have to retype them.
-    """
-    cprint(f"\n[bold]{template['name']}[/bold]  "
-           f"[dim]{int(template['calories'])} kcal / "
-           f"{template['quantity']} {template['unit']}[/dim]\n")
-
+    default_cat = "drink" if is_drink else "uncategorized"
     meal_category = _prompt_choice(
-        f"Meal category ({'/'.join(MEAL_CATEGORIES)}): ",
+        f"Category ({'/'.join(MEAL_CATEGORIES)}): ",
         choices=MEAL_CATEGORIES,
-        default="uncategorized",
+        default=default_cat,
     )
 
     base_qty = template.get("quantity", 1.0)
@@ -431,12 +525,16 @@ def _log_food_from_template(d: date, template: Dict[str, Any]) -> None:
         default=base_qty,
     )
 
-    # Scale macros proportionally when quantity differs from the template base
     scale = quantity / base_qty if base_qty else 1.0
-    calories = template.get("calories", 0.0) * scale
+    calories  = template.get("calories",  0.0) * scale
     protein_g = template.get("protein_g", 0.0) * scale
-    carbs_g = template.get("carbs_g", 0.0) * scale
-    fat_g = template.get("fat_g", 0.0) * scale
+    carbs_g   = template.get("carbs_g",   0.0) * scale
+    fat_g     = template.get("fat_g",     0.0) * scale
+
+    amount_ml: Optional[float] = None
+    vol_per_unit = template.get("volume_ml_per_unit")
+    if is_drink and vol_per_unit:
+        amount_ml = vol_per_unit * scale
 
     entry = make_food_entry(
         name=template["name"],
@@ -447,27 +545,10 @@ def _log_food_from_template(d: date, template: Dict[str, Any]) -> None:
         quantity=quantity,
         unit=template.get("unit", "serving"),
         meal_category=meal_category,
+        amount_ml=amount_ml,
     )
     append_entry(d, "food_entries", entry)
     cprint(f"[green]✔ Logged {template['name']} ({int(calories)} kcal)[/green]")
-    cinput("\nPress Enter to continue.")
-
-
-def _log_water(d: date, units: str) -> None:
-    clear_console()
-    cprint("[bold]Log Water[/bold]\n")
-
-    if units == "imperial":
-        oz = _prompt_float("Amount (oz): ", min_=0.1)
-        amount_ml = oz * 29.5735
-        display = f"{oz:.0f} oz"
-    else:
-        amount_ml = _prompt_float("Amount (mL): ", min_=1.0)
-        display = f"{amount_ml:.0f} mL"
-
-    entry = make_water_entry(amount_ml)
-    append_entry(d, "water_entries", entry)
-    cprint(f"[green]✔ Logged {display} of water[/green]")
     cinput("\nPress Enter to continue.")
 
 
@@ -477,13 +558,19 @@ def _delete_food(d: date) -> None:
     entries = day.get("food_entries", [])
 
     if not entries:
-        cprint("[yellow]No food entries to delete.[/yellow]")
+        cprint("[yellow]No entries to delete.[/yellow]")
         cinput("\nPress Enter to continue.")
         return
 
-    cprint("[bold]Delete Food Entry[/bold]\n")
+    cprint("[bold]Delete Entry[/bold]\n")
     for e in entries:
-        cprint(f"  [cyan]{e['id']}[/cyan]  {e['name']} — {int(e.get('calories', 0))} kcal ({e.get('meal_category', '').capitalize()})")
+        cat = e.get("meal_category", "")
+        cat_style = _CATEGORY_STYLE.get(cat, "dim")
+        cprint(
+            f"  [cyan]{e['id']}[/cyan]  "
+            f"[{cat_style}]{cat.capitalize()}[/{cat_style}]  "
+            f"{e['name']} — {int(e.get('calories', 0))} kcal"
+        )
 
     entry_id = cinput("\nEnter ID to delete (or blank to cancel): ").strip()
     if not entry_id:
