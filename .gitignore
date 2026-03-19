@@ -1,5 +1,7 @@
 src/data/**
 !src/data/.gitkeep
+!src/data/fdc/
+!src/data/fdc/fdc.db
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
