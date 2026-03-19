@@ -24,6 +24,11 @@ from core.log_manager import (
     make_food_entry,
     get_daily_totals,
 )
+from core.fdc_importer import search_foods, db_stats
+from core.data_manager import DATA_DIR
+
+FDC_DB_PATH = DATA_DIR / "fdc" / "fdc.db"
+_FDC_SEARCH_LIMIT = 15
 
 
 MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "drink", "uncategorized")
@@ -435,33 +440,245 @@ def _delete_custom_food(foods: List[Dict[str, Any]]) -> None:
 # Logging actions
 # ---------------------------------------------------------------------------
 
+_SOURCE_STYLE = {
+    "foundation": "green",
+    "sr_legacy":  "cyan",
+    "branded":    "yellow",
+}
+_SOURCE_LABEL = {
+    "foundation": "Foundation",
+    "sr_legacy":  "SR Legacy",
+    "branded":    "Branded",
+}
+
+
+def _render_search_results(results: List[Dict[str, Any]], units: str) -> None:
+    """Print a compact numbered table of FDC search results."""
+    console = Console()
+    table = Table(show_lines=False, show_header=True, header_style="bold")
+    table.add_column("#",       style="dim",  width=3,  no_wrap=True)
+    table.add_column("Source",               width=10, no_wrap=True)
+    table.add_column("Item",    min_width=24, max_width=36)
+    table.add_column("kcal",    justify="right", width=6,  no_wrap=True)
+    table.add_column("Serving", justify="right", width=16, no_wrap=True)
+
+    for i, r in enumerate(results, start=1):
+        source = r.get("source", "")
+        style  = _SOURCE_STYLE.get(source, "white")
+        label  = _SOURCE_LABEL.get(source, source.capitalize())
+
+        kcal_100 = r.get("kcal_per_100g")
+        s_grams  = r.get("serving_grams")
+        s_label  = r.get("serving_label") or ""
+
+        # Show kcal for the default serving if we can, else per 100g
+        if kcal_100 is not None and s_grams:
+            kcal_serving = kcal_100 * s_grams / 100.0
+            kcal_str = str(int(kcal_serving))
+        elif kcal_100 is not None:
+            kcal_str = f"{int(kcal_100)}/100g"
+        else:
+            kcal_str = "—"
+
+        # Serving display
+        if s_label and s_grams:
+            serving_str = f"{s_label} ({s_grams:.0f}g)"
+        elif s_label:
+            serving_str = s_label
+        elif s_grams:
+            serving_str = f"{s_grams:.0f}g"
+        else:
+            serving_str = "100g"
+
+        table.add_row(
+            str(i),
+            Text(label, style=style),
+            r.get("description", "—"),
+            kcal_str,
+            serving_str,
+        )
+
+    console.print(table)
+
+
 def _log_entry(d: date, units: str) -> None:
-    clear_console()
-    cprint("[bold]Log Food or Drink[/bold]\n")
+    """Search-first entry point for logging food or drink."""
+    db_available = db_stats(FDC_DB_PATH) is not None
 
-    custom_foods = _load_custom_foods()
+    while True:
+        clear_console()
+        cprint("[bold]Log Food or Drink[/bold]\n")
 
-    if custom_foods:
-        _render_custom_foods_table(custom_foods)
-        cprint("\n[dim]Enter a number to use a saved item, or press Enter to log manually.[/dim]")
-        raw = cinput("Selection: ").strip()
+        if db_available:
+            cprint("[dim]Type to search the food database, or:[/dim]")
+            cprint("  [dim](c)[/dim] choose from custom foods")
+            cprint("  [dim](m)[/dim] enter manually")
+            cprint("  [dim](b)[/dim] cancel\n")
+            query = cinput("Search: ").strip()
+        else:
+            cprint("[dim](c)[/dim] choose from custom foods")
+            cprint("[dim](m)[/dim] enter manually")
+            cprint("[dim](b)[/dim] cancel\n")
+            query = cinput("Choice: ").strip().lower()
 
-        if raw:
-            try:
-                idx = int(raw) - 1
-                if not (0 <= idx < len(custom_foods)):
-                    raise ValueError
-            except ValueError:
-                cprint("[yellow]Invalid selection — continuing to manual entry.[/yellow]\n")
-            else:
-                _log_from_template(d, custom_foods[idx], units)
+        if query.lower() == "b":
+            return
+        if query.lower() == "m":
+            _log_manually(d, units)
+            return
+        if query.lower() == "c":
+            _log_from_custom(d, units)
+            return
+
+        if not query:
+            continue
+
+        # Run the search
+        results = search_foods(FDC_DB_PATH, query, limit=_FDC_SEARCH_LIMIT)
+
+        clear_console()
+        cprint(f"[bold]Results for:[/bold] [cyan]{query}[/cyan]\n")
+
+        if not results:
+            cprint("[yellow]No results found.[/yellow]")
+            cprint("[dim]Try different keywords, or:[/dim]")
+        else:
+            _render_search_results(results, units)
+
+        cprint("")
+        if results:
+            cprint("[dim]Enter a number to log that item, or:[/dim]")
+        cprint("  [dim](r)[/dim] refine search")
+        cprint("  [dim](c)[/dim] choose from custom foods")
+        cprint("  [dim](m)[/dim] enter manually" +
+               (f" [dim](pre-filled as '{query}')[/dim]" if not results else ""))
+        cprint("  [dim](b)[/dim] cancel\n")
+
+        pick = cinput("Choice: ").strip().lower()
+
+        if pick == "b":
+            return
+        if pick == "r":
+            continue  # loop back to search prompt
+        if pick == "m":
+            _log_manually(d, units, name_prefill=query if not results else "")
+            return
+        if pick == "c":
+            _log_from_custom(d, units)
+            return
+
+        if results and pick.isdigit():
+            idx = int(pick) - 1
+            if 0 <= idx < len(results):
+                _log_from_fdc(d, results[idx], units)
                 return
+            else:
+                cprint("[yellow]Number out of range.[/yellow]")
+                cinput("Press Enter to try again.")
+                continue
 
-    _log_manually(d, units)
+        cprint("[yellow]Invalid choice.[/yellow]")
+        cinput("Press Enter to try again.")
 
 
-def _log_manually(d: date, units: str) -> None:
-    name = _prompt_str("Name: ")
+def _log_from_fdc(d: date, food: Dict[str, Any], units: str) -> None:
+    """Confirm quantity and log a food record sourced from the FDC database."""
+    clear_console()
+
+    kcal_100  = food.get("kcal_per_100g")  or 0.0
+    prot_100  = food.get("protein_per_100g") or 0.0
+    carb_100  = food.get("carbs_per_100g")  or 0.0
+    fat_100   = food.get("fat_per_100g")    or 0.0
+    s_grams   = food.get("serving_grams")
+    s_label   = food.get("serving_label") or "serving"
+    name      = food["description"]
+
+    # Default quantity in servings (1 serving = s_grams g)
+    default_servings = 1.0
+    if s_grams:
+        kcal_serving = kcal_100 * s_grams / 100.0
+        cprint(f"[bold]{name}[/bold]")
+        cprint(f"[dim]Default serving: {s_label} ({s_grams:.0f}g) = {int(kcal_serving)} kcal[/dim]\n")
+    else:
+        # No serving size known — work in 100g units
+        s_grams = 100.0
+        s_label = "100g"
+        cprint(f"[bold]{name}[/bold]")
+        cprint(f"[dim]No serving size on record — quantities in 100g units[/dim]\n")
+
+    meal_category = _prompt_choice(
+        f"Category ({'/'.join(MEAL_CATEGORIES)}): ",
+        choices=MEAL_CATEGORIES,
+        default="uncategorized",
+    )
+
+    servings = _prompt_float(
+        f"Servings [{s_label}]: ",
+        min_=0.01,
+        default=default_servings,
+    )
+
+    total_grams = s_grams * servings
+    scale       = total_grams / 100.0
+
+    calories  = kcal_100 * scale
+    protein_g = prot_100 * scale
+    carbs_g   = carb_100 * scale
+    fat_g     = fat_100  * scale
+
+    amount_ml: Optional[float] = None
+    if meal_category == "drink":
+        if units == "imperial":
+            oz = _prompt_float("Volume (oz, 0 to skip): ", min_=0.0, default=0.0)
+            amount_ml = oz * 29.5735 if oz > 0 else None
+        else:
+            ml = _prompt_float("Volume (mL, 0 to skip): ", min_=0.0, default=0.0)
+            amount_ml = ml if ml > 0 else None
+
+    entry = make_food_entry(
+        name=name,
+        calories=calories,
+        protein_g=protein_g,
+        carbs_g=carbs_g,
+        fat_g=fat_g,
+        quantity=servings,
+        unit=s_label,
+        meal_category=meal_category,
+        amount_ml=amount_ml,
+    )
+    append_entry(d, "food_entries", entry)
+    cprint(f"[green]✔ Logged {name} ({int(calories)} kcal)[/green]")
+    cinput("\nPress Enter to continue.")
+
+
+def _log_from_custom(d: date, units: str) -> None:
+    """Quick-pick from saved custom foods."""
+    custom_foods = _load_custom_foods()
+    if not custom_foods:
+        cprint("[yellow]No custom foods saved yet.[/yellow]")
+        cinput("\nPress Enter to continue.")
+        return
+
+    clear_console()
+    _render_custom_foods_table(custom_foods)
+    cprint("\n[dim]Enter a number to log, or blank to cancel.[/dim]")
+    raw = cinput("Selection: ").strip()
+    if not raw:
+        return
+    try:
+        idx = int(raw) - 1
+        if not (0 <= idx < len(custom_foods)):
+            raise ValueError
+    except ValueError:
+        cprint("[yellow]Invalid selection.[/yellow]")
+        cinput("\nPress Enter to continue.")
+        return
+
+    _log_from_template(d, custom_foods[idx], units)
+
+
+def _log_manually(d: date, units: str, name_prefill: str = "") -> None:
+    name = _prompt_str("Name: ", default=name_prefill)
     if not name:
         return
 
