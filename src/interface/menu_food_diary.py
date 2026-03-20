@@ -11,7 +11,7 @@ from rich.text import Text
 
 from interface.prompts import _prompt_str, _prompt_float, _prompt_choice
 
-from core.console_manager import cprint, cinput, clear_console
+from core.console_manager import cprint, cinput, clear_console, get_console
 from core.data_manager import (
     Environment,
     CUSTOM_FOODS_PATH,
@@ -131,7 +131,7 @@ def run_food_diary_menu(env: Environment) -> None:
 # ---------------------------------------------------------------------------
 
 def _render_food_diary(d: date, units: str) -> None:
-    console = Console()
+    console = get_console()
     day = load_day(d)
     totals = get_daily_totals(d)
 
@@ -231,7 +231,7 @@ def _render_food_diary(d: date, units: str) -> None:
 
 
 def _render_custom_foods_table(foods: List[Dict[str, Any]]) -> None:
-    console = Console()
+    console = get_console()
     table = Table(
         title="Custom Foods",
         show_lines=False,
@@ -454,7 +454,7 @@ _SOURCE_LABEL = {
 
 def _render_search_results(results: List[Dict[str, Any]], units: str) -> None:
     """Print a compact numbered table of FDC search results."""
-    console = Console()
+    console = get_console()
     table = Table(show_lines=False, show_header=True, header_style="bold")
     table.add_column("#",       style="dim",  width=3,  no_wrap=True)
     table.add_column("Source",               width=10, no_wrap=True)

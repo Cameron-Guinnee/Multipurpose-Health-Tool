@@ -14,6 +14,7 @@ from rich.text import Text
 from core.health_manager import get_rmr_from_profile, get_tdee_from_rmr
 from core.log_manager import get_daily_totals, get_latest_weight
 from core.units import cm_to_in, kg_to_lb
+from core.console_manager import get_console
 
 
 # -------------------------------------------------
@@ -237,7 +238,7 @@ def build_daily_summary(env) -> DailySummary:
 # Renderer
 # -------------------------------------------------
 def render_dashboard(summary: DailySummary, units: str, console: Console | None = None) -> None:
-    console = console or Console()
+    console = get_console()
 
     # Calories panel
     cal_table = Table.grid(padding=(0, 1))
