@@ -201,7 +201,7 @@ def append_entry(d: date, entry_type: str, entry: Dict[str, Any]) -> None:
     day[entry_type].append(entry)
     save_day(d, day)
 
-
+# TODO: This won't work on water_entries, weight_entries, exercise_entries, biometric_entries, or any entries without an id. Fix it, at least for weight/biometrics; water content can be a property of food/drink items.
 def delete_entry(d: date, entry_type: str, entry_id: str) -> bool:
     """Delete a food entry by id. Returns True if found and removed."""
     day = load_day(d)

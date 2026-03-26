@@ -19,8 +19,8 @@ def get_rmr_from_profile(profile: dict) -> float:
     age = _compute_age_years(bd) 
    
     sex = profile["sex_for_bmr"] 
-    weight = profile["weight_kg"]
-    height = profile["height_cm"]
+    weight = float(profile["weight_kg"])
+    height = float(profile["height_cm"])
     
     return mifflin_st_jeor_rmr(age, sex, weight, height) 
  

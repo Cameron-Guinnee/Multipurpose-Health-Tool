@@ -61,7 +61,7 @@ def _prompt_choice(prompt: str, *, choices: tuple, default: str) -> str:
     while True:
         s = cinput(f"{prompt}(default {default}) ").strip().lower()
         if not s:
-            return default
+            return default.lower()
         if s in choices_set:
             return s
         cprint(f"[yellow]Choose one of: {', '.join(choices)}[/yellow]")

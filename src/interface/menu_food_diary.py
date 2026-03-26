@@ -5,7 +5,6 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 

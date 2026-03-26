@@ -90,8 +90,8 @@ def _wizard_profile(env: Environment, units: str) -> None:
     profile["age"] = _compute_age_years(bd) if bd else ""
 
     if units == "imperial":
-        imperial_weight = _prompt_float("Weight (lb): ", min_=1, default=profile.get("weight_kg"))
-        imperial_height = _prompt_float("Height (inches): ", min_=1, default=profile.get("height_cm")) 
+        imperial_weight = _prompt_float("Weight (lb): ", min_=1, default=kg_to_lb(profile.get("weight_kg")) if profile.get("weight_cm") else None)
+        imperial_height = _prompt_float("Height (inches): ", min_=1, default=cm_to_in(profile.get("height_cm")) if profile.get("height_cm") else None) 
         profile["weight_kg"] = lb_to_kg(imperial_weight)
         profile["height_cm"] = in_to_cm(imperial_height) 
     else:

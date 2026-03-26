@@ -161,7 +161,7 @@ def build_daily_summary(env) -> DailySummary:
     planned_delta: float | None = None
 
     if mode == "manual":
-        manual = goals.get("manual_calorie_target")
+        manual = config.get("manual_calorie_target")
         try:
             calorie_target = float(manual) if manual is not None else None
         except (TypeError, ValueError):
@@ -238,7 +238,7 @@ def build_daily_summary(env) -> DailySummary:
 # Renderer
 # -------------------------------------------------
 def render_dashboard(summary: DailySummary, units: str, console: Console | None = None) -> None:
-    console = get_console()
+    console = console or get_console()
 
     # Calories panel
     cal_table = Table.grid(padding=(0, 1))
