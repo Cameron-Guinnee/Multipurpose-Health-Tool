@@ -11,14 +11,12 @@ def main():
     env = data_manager.ensure_environment()
     if not is_setup_complete(env): 
         env = run_setup_wizard(env)
-        
+    
+    TITLE_SCREEN = "title_screen"
     MAIN_MENU = "main_menu" 
+    
+    get_menu(TITLE_SCREEN)()
     get_menu(MAIN_MENU)(env)
-    
-    
-    
-    
-    
     
     
 if __name__ == "__main__":

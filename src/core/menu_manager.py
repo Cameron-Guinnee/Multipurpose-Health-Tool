@@ -1,4 +1,5 @@
 def get_menu(menu_name: str): 
+    from interface.menu_title_screen import run_title_screen
     from interface.menu_main import run_main_menu
     from interface.menu_food_diary import run_food_diary_menu
     from interface.menu_biometrics import run_biometrics_menu
@@ -6,6 +7,7 @@ def get_menu(menu_name: str):
     
     
     MENUS = { 
+        "title_screen": run_title_screen,
         "main_menu": run_main_menu,
         "food_diary_menu": run_food_diary_menu,
         "biometrics_menu": run_biometrics_menu,
