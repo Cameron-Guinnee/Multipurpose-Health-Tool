@@ -10,6 +10,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.rule import Rule
+from rich import box
 
 from core.health_manager import get_rmr_from_profile, get_tdee_from_rmr
 from core.log_manager import get_daily_totals, get_latest_weight
@@ -235,79 +237,179 @@ def build_daily_summary(env) -> DailySummary:
 
 
 # -------------------------------------------------
+# Progress bar helper
+# -------------------------------------------------
+_BAR_WIDTH = 18
+
+def _progress_bar(ratio: float, style: str) -> Text:
+    """Render a fixed-width unicode block progress bar."""
+    ratio = max(0.0, min(ratio, 1.0))
+    filled = round(ratio * _BAR_WIDTH)
+    empty  = _BAR_WIDTH - filled
+    bar = Text()
+    bar.append("#" * filled, style=style)
+    bar.append("-" * empty,  style="bright_black")
+    bar.append(f"  {ratio:.0%}", style=style)
+    return bar
+
+
+def _label(text: str) -> Text:
+    """Dim label so values stand out more clearly."""
+    return Text(text, style="dim")
+
+
+# -------------------------------------------------
 # Renderer
 # -------------------------------------------------
 def render_dashboard(summary: DailySummary, units: str, console: Console | None = None) -> None:
-    console = console or get_console()
+    if console is None:
+        import shutil
+        columns, _ = shutil.get_terminal_size(fallback=(120, 50))
+        console = Console(width=min(columns, 180))
+    
+    
 
-    # Calories panel
-    cal_table = Table.grid(padding=(0, 1))
-    cal_table.add_column(justify="left")
-    cal_table.add_column(justify="right")
+    # ── Header ────────────────────────────────────────────────────────────────
+    header = Text()
+    header.append("  Daily Dashboard", style="bold white")
+    header.append("  •  ", style="bright_black")
+    day_str = f"{summary.day.strftime('%A, %B')} {summary.day.day} {summary.day.strftime('%Y')}"
+    header.append(day_str, style="bright_black")
 
-    cal_table.add_row("Calories consumed", f"{summary.calories_consumed:.0f}")
+    console.print(Panel(header, border_style="bright_magenta", box=box.ROUNDED, padding=(0, 1)))
+
+    # ── Calories panel ────────────────────────────────────────────────────────
+    cal_table = Table.grid(padding=(0, 2))
+    cal_table.add_column(justify="left",  no_wrap=True)
+    cal_table.add_column(justify="right", no_wrap=True)
+
+    cal_table.add_row(
+        _label("Consumed"),
+        Text(f"{summary.calories_consumed:.0f} kcal", style="bold white"),
+    )
 
     if summary.calorie_target is None:
-        cal_table.add_row("Target", "—")
-        cal_table.add_row("Status", "No target")
+        cal_table.add_row(_label("Target"), Text("—", style="bright_black"))
     else:
         style = _calorie_style(summary.calories_consumed, summary.calorie_target)
-        cal_table.add_row("Target", f"{summary.calorie_target:.0f}")
+        ratio = summary.calories_consumed / summary.calorie_target if summary.calorie_target else 0.0
+
         cal_table.add_row(
-            "Status",
-            Text.from_markup(f"[{style}]{summary.calories_consumed:.0f} / {summary.calorie_target:.0f}[/{style}]"),
+            _label("Target"),
+            Text(f"{summary.calorie_target:.0f} kcal", style="white"),
         )
+        cal_table.add_row(_label("Progress"), _progress_bar(ratio, style))
+
         delta = summary.calorie_delta_from_target
         if delta is not None:
-            cal_table.add_row("Delta", _delta_text(delta))
+            cal_table.add_row(_label("Delta"), _delta_text(delta))
 
-    if summary.tdee_estimate is not None:
-        cal_table.add_row("TDEE est.", f"{summary.tdee_estimate:.0f}")
-    else:
-        cal_table.add_row("TDEE est.", "—")
+    cal_table.add_row(_label(""), Text(""))   # spacer
 
-    if summary.rmr_estimate is not None:
-        cal_table.add_row("RMR est.", f"{summary.rmr_estimate:.0f}")
-    else:
-        cal_table.add_row("RMR est.", "—")
+    tdee_val = f"{summary.tdee_estimate:.0f}" if summary.tdee_estimate is not None else "—"
+    rmr_val  = f"{summary.rmr_estimate:.0f}"  if summary.rmr_estimate  is not None else "—"
+    cal_table.add_row(_label("TDEE est."), Text(tdee_val, style="cyan"))
+    cal_table.add_row(_label("RMR est."),  Text(rmr_val,  style="cyan"))
 
     if summary.planned_delta is not None:
-        cal_table.add_row("Plan", _planned_text(summary.planned_delta))
+        cal_table.add_row(_label("Plan"), _planned_text(summary.planned_delta))
 
-    calories_panel = Panel(cal_table, title="Calories", border_style="cyan")
+    calories_panel = Panel(
+        cal_table,
+        title="[bold cyan]Calories[/bold cyan]",
+        border_style="cyan",
+        box=box.ROUNDED,
+        padding=(0, 1),
+    )
 
-    # Water panel
+    # ── Hydration panel ───────────────────────────────────────────────────────
     water_ratio = summary.water_ml / summary.water_goal_ml if summary.water_goal_ml > 0 else 0.0
     water_style = _style_for_ratio(water_ratio, good_at_or_above=True)
 
-    water_table = Table.grid(padding=(0, 1))
-    water_table.add_column(justify="left")
-    water_table.add_column(justify="right")
-    water_table.add_row("Consumed", _format_water(summary.water_ml, units))
-    water_table.add_row("Goal", _format_water(summary.water_goal_ml, units))
-    water_table.add_row("Progress", Text(f"{water_ratio:.0%}", style=water_style))
+    water_table = Table.grid(padding=(0, 2))
+    water_table.add_column(justify="left",  no_wrap=True)
+    water_table.add_column(justify="right", no_wrap=True)
 
-    water_panel = Panel(water_table, title="Hydration", border_style="blue")
-
-    # Weight panel
-    weight_table = Table.grid(padding=(0, 1))
-    weight_table.add_column(justify="left")
-    weight_table.add_column(justify="right")
-    weight_table.add_row("Current", _format_weight(summary.current_weight_kg, units))
-    weight_table.add_row("Target", _format_weight(summary.target_weight_kg, units))
-    weight_table.add_row("Start", _format_weight(summary.start_weight_kg, units))
-    weight_table.add_row("To goal", _format_weight(summary.to_goal_kg, units))
-    weight_table.add_row("Change", _format_weight(summary.total_change_kg, units))
-
-    weight_panel = Panel(weight_table, title="Weight", border_style="green")
-
-    console.print(
-        Panel(
-            f"[bold]Daily Dashboard[/bold] • {summary.day.isoformat()}",
-            border_style="magenta",
-        )
+    water_table.add_row(
+        _label("Consumed"),
+        Text(_format_water(summary.water_ml, units), style="bold white"),
     )
-    console.print(Columns([calories_panel, water_panel, weight_panel], equal=True, expand=True))
+    water_table.add_row(
+        _label("Goal"),
+        Text(_format_water(summary.water_goal_ml, units), style="white"),
+    )
+    water_table.add_row(_label("Progress"), _progress_bar(water_ratio, water_style))
+
+    water_panel = Panel(
+        water_table,
+        title="[bold blue]Hydration[/bold blue]",
+        border_style="blue",
+        box=box.ROUNDED,
+        padding=(0, 1),
+    )
+
+    # ── Weight panel ──────────────────────────────────────────────────────────
+    weight_table = Table.grid(padding=(0, 2))
+    weight_table.add_column(justify="left",  no_wrap=True)
+    weight_table.add_column(justify="right", no_wrap=True)
+
+    weight_table.add_row(
+        _label("Current"),
+        Text(_format_weight(summary.current_weight_kg, units), style="bold white"),
+    )
+    weight_table.add_row(
+        _label("Target"),
+        Text(_format_weight(summary.target_weight_kg, units), style="white"),
+    )
+    weight_table.add_row(
+        _label("Start"),
+        Text(_format_weight(summary.start_weight_kg, units), style="white"),
+    )
+
+    weight_table.add_row(_label(""), Text(""))   # spacer
+
+    # Colour to-goal by direction: green moving toward target, red moving away
+    if summary.to_goal_kg is not None:
+        goal_type_sign = -1 if (summary.target_weight_kg or 0) < (summary.current_weight_kg or 0) else 1
+        to_goal_style = "green" if (summary.to_goal_kg * goal_type_sign) <= 0 else "yellow"
+    else:
+        to_goal_style = "white"
+
+    # Colour total change the same way
+    if summary.total_change_kg is not None:
+        change_style = "green" if summary.total_change_kg * goal_type_sign <= 0 else "red"
+        change_prefix = "+" if summary.total_change_kg > 0 else ""
+        change_str = f"{change_prefix}{_format_weight(summary.total_change_kg, units)}"
+    else:
+        change_style = "bright_black"
+        change_str = "—"
+
+    weight_table.add_row(
+        _label("To goal"),
+        Text(_format_weight(summary.to_goal_kg, units), style=to_goal_style),
+    )
+    weight_table.add_row(
+        _label("Change"),
+        Text(change_str, style=change_style),
+    )
+
+    weight_panel = Panel(
+        weight_table,
+        title="[bold green]Weight[/bold green]",
+        border_style="green",
+        box=box.ROUNDED,
+        padding=(0, 1),
+    )
+
+    # ── Layout: all three panels in a fixed-height table row ─────────────────
+    layout = Table.grid(expand=True)
+    layout.add_column(ratio=1)
+    layout.add_column(ratio=1)
+    layout.add_column(ratio=1)
+    layout.add_row(calories_panel, water_panel, weight_panel)
+
+    console.print(layout)
+    console.print()
 
 
 def render_main_dashboard(env, console: Console | None = None) -> None:

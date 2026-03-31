@@ -87,11 +87,11 @@ def _build_panel(tick: int) -> Panel:
 
     body = Text(justify="center")
     body.append("\n")
-    body.append("  ╔══════════════════════════════════════════╗\n", style=Style(color=TEAL_DIM))
-    body.append("  ║  ", style=Style(color=TEAL_DIM))
-    body.append("Your all-in-one companion for better living", style=Style(color=GOLD, italic=True))
-    body.append("  ║\n", style=Style(color=TEAL_DIM))
-    body.append("  ╚══════════════════════════════════════════╝\n", style=Style(color=TEAL_DIM))
+    body.append("╔════════════════════════════════════════════╗\n", style=Style(color=TEAL_DIM))
+    body.append("║", style=Style(color=TEAL_DIM))
+    body.append(" Your AIO companion for better living       ", style=Style(color=GOLD, italic=True))
+    body.append("║\n", style=Style(color=TEAL_DIM))
+    body.append("╚════════════════════════════════════════════╝\n", style=Style(color=TEAL_DIM))
     body.append("\n")
 
     for i, b in enumerate(badges):
@@ -103,7 +103,7 @@ def _build_panel(tick: int) -> Panel:
 
     body.append("  v1.0.0  ", style=Style(color=GREY))
     body.append("│", style=Style(color=TEAL_DIM))
-    body.append("  Built with ♥ using Python & Rich  ", style=Style(color=GREY, italic=True))
+    body.append("  Built with love using Python & Rich  ", style=Style(color=GREY, italic=True))
     body.append("\n\n")
     body.append_text(_pulse_prompt(tick))
     body.append("\n")
@@ -118,7 +118,7 @@ def _build_panel(tick: int) -> Panel:
         box=box.DOUBLE_EDGE,
         style=Style(color=TEAL, bgcolor=DARK),
         padding=(1, 4),
-        title=Text(" ⚕  HEALTH TOOLS  ⚕ ", style=Style(color=GOLD, bold=True)),
+        title=Text("  HEALTH TOOLS  ", style=Style(color=GOLD, bold=True)),
         subtitle=Text(" © 2026 ", style=Style(color=GREY)),
     )
 
