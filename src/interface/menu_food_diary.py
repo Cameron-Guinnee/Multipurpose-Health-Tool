@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from rich.table import Table
@@ -97,11 +97,18 @@ def _make_custom_food(
 
 def run_food_diary_menu(env: Environment) -> None:
     units = str(env.config.get("units", "imperial")).strip().lower()
+    viewed_date = date.today()
 
     while True:
         clear_console()
         today = date.today()
-        _render_food_diary(today, units)
+        _render_food_diary(viewed_date, units)
+
+        # Navigation hint line
+        is_today = viewed_date == today
+        nav_next = "[cyan]>[/cyan] next day" if not is_today else "[dim]> next day[/dim]"
+        nav_today = "  [cyan]t[/cyan] today" if not is_today else ""
+        cprint(f"\n  [cyan]<[/cyan] prev day    {nav_next}    [cyan]g[/cyan] go to date{nav_today}")
 
         cprint("\n[bold purple]Food Diary[/bold purple]")
         cprint("[dim]Select an option:[/dim]\n")
@@ -113,16 +120,68 @@ def run_food_diary_menu(env: Environment) -> None:
         choice = cinput("\nChoice: ").strip().lower()
 
         if choice == "1":
-            _log_entry(today, units)
+            _log_entry(viewed_date, units)
         elif choice == "2":
-            _delete_food(today)
+            _delete_food(viewed_date)
         elif choice == "3":
             _manage_custom_foods_menu(units)
+        elif choice == "<":
+            viewed_date -= timedelta(days=1)
+        elif choice == ">":
+            if viewed_date < today:
+                viewed_date += timedelta(days=1)
+        elif choice == "t":
+            viewed_date = today
+        elif choice == "g":
+            jumped = _prompt_date(today)
+            if jumped is not None:
+                viewed_date = jumped
         elif choice == "b":
             return
         else:
             cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
             cinput("")
+
+# ---------------------------------------------------------------------------
+# Date navigation
+# ---------------------------------------------------------------------------
+
+def _prompt_date(today: date) -> Optional[date]:
+    """Prompt the user to enter a date and return it, or None on cancel.
+
+    Accepts: YYYY-MM-DD, MM-DD, or MM/DD (assumes current year).
+    Rejects future dates.
+    """
+    cprint("\n[dim]Enter a date — formats: YYYY-MM-DD, MM-DD, or MM/DD (blank to cancel)[/dim]")
+    raw = cinput("Date: ").strip()
+    if not raw:
+        return None
+
+    parsed: Optional[date] = None
+    normalized = raw.replace("/", "-")
+
+    for fmt in ("%Y-%m-%d", "%m-%d"):
+        try:
+            if fmt == "%m-%d":
+                # Assume current year
+                parsed = date.fromisoformat(f"{today.year}-{normalized}")
+            else:
+                parsed = date.fromisoformat(normalized)
+            break
+        except ValueError:
+            continue
+
+    if parsed is None:
+        cprint("[yellow]Couldn't parse that date. Try YYYY-MM-DD or MM-DD.[/yellow]")
+        cinput("Press Enter to continue.")
+        return None
+
+    if parsed > today:
+        cprint("[yellow]Can't navigate to a future date.[/yellow]")
+        cinput("Press Enter to continue.")
+        return None
+
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +203,17 @@ def _render_food_diary(d: date, units: str) -> None:
             cat = "uncategorized"
         grouped[cat].append(e)
 
+    today = date.today()
+    delta = (today - d).days
+    if delta == 0:
+        date_label = f"{d.strftime('%A, %B')} {d.day} [green]· today[/green]"
+    elif delta == 1:
+        date_label = f"{d.strftime('%A, %B')} {d.day} [yellow]· yesterday[/yellow]"
+    else:
+        date_label = f"{d.strftime('%A, %B')} {d.day} [yellow]· {delta} days ago[/yellow]"
+
     food_table = Table(
-        title=f"[bold]Food & Drink Log[/bold]  [dim]{d.strftime('%A, %B')} {d.day}[/dim]",
+        title=f"[bold]Food & Drink Log[/bold]  [dim]{date_label}[/dim]",
         show_lines=False,
         show_header=True,
         header_style="bold",
@@ -156,9 +224,9 @@ def _render_food_diary(d: date, units: str) -> None:
     food_table.add_column("Item", min_width=20, max_width=32)
     food_table.add_column("Qty",  justify="right", width=12, no_wrap=True)
     food_table.add_column("kcal", justify="right", width=6,  no_wrap=True)
-    food_table.add_column("P",    justify="right", width=5,  no_wrap=True)
-    food_table.add_column("C",    justify="right", width=5,  no_wrap=True)
-    food_table.add_column("F",    justify="right", width=5,  no_wrap=True)
+    food_table.add_column("P(g)",    justify="right", width=5,  no_wrap=True)
+    food_table.add_column("C(g)",    justify="right", width=5,  no_wrap=True)
+    food_table.add_column("F(g)",    justify="right", width=5,  no_wrap=True)
 
     any_entries = any(grouped[cat] for cat in _CATEGORY_ORDER)
 
