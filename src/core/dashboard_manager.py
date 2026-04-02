@@ -344,6 +344,10 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
     weight_table.add_column(justify="right", no_wrap=True)
 
     weight_table.add_row(
+        _label("Start"),
+        Text(_format_weight(summary.start_weight_kg, units), style="white"),
+    )
+    weight_table.add_row(
         _label("Current"),
         Text(_format_weight(summary.current_weight_kg, units), style="bold white"),
     )
@@ -351,10 +355,7 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
         _label("Target"),
         Text(_format_weight(summary.target_weight_kg, units), style="white"),
     )
-    weight_table.add_row(
-        _label("Start"),
-        Text(_format_weight(summary.start_weight_kg, units), style="white"),
-    )
+    
 
     weight_table.add_row(_label(""), Text(""))   # spacer
 
@@ -375,7 +376,7 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
         change_str = "—"
 
     weight_table.add_row(
-        _label("To goal"),
+        _label("Remaining"),
         Text(_format_weight(summary.to_goal_kg, units), style=to_goal_style),
     )
     weight_table.add_row(
