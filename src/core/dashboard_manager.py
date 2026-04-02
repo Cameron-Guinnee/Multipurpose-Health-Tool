@@ -6,6 +6,7 @@ from datetime import date
 from typing import Optional
 
 from rich.columns import Columns
+from rich.console import Group
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -247,8 +248,8 @@ def _progress_bar(ratio: float, style: str) -> Text:
     filled = round(ratio * _BAR_WIDTH)
     empty  = _BAR_WIDTH - filled
     bar = Text()
-    bar.append("#" * filled, style=style)
-    bar.append("-" * empty,  style="bright_black")
+    bar.append("█" * filled, style=style)
+    bar.append("─" * empty,  style="bright_black")
     bar.append(f"  {ratio:.0%}", style=style)
     return bar
 
@@ -266,18 +267,7 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
         import shutil
         columns, _ = shutil.get_terminal_size(fallback=(120, 50))
         console = Console(width=min(columns, 180))
-    
-    
-
-    # ── Header ────────────────────────────────────────────────────────────────
-    header = Text()
-    header.append("  Daily Dashboard", style="bold white")
-    header.append("  •  ", style="bright_black")
-    day_str = f"{summary.day.strftime('%A, %B')} {summary.day.day} {summary.day.strftime('%Y')}"
-    header.append(day_str, style="bright_black")
-
-    console.print(Panel(header, border_style="bright_magenta", box=box.ROUNDED, padding=(0, 1)))
-
+        
     # ── Calories panel ────────────────────────────────────────────────────────
     cal_table = Table.grid(padding=(0, 2))
     cal_table.add_column(justify="left",  no_wrap=True)
@@ -317,11 +307,11 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
     calories_panel = Panel(
         cal_table,
         title="[bold cyan]Calories[/bold cyan]",
-        border_style="cyan",
+        border_style="bright_black",
         box=box.ROUNDED,
         padding=(0, 1),
     )
-
+    
     # ── Hydration panel ───────────────────────────────────────────────────────
     water_ratio = summary.water_ml / summary.water_goal_ml if summary.water_goal_ml > 0 else 0.0
     water_style = _style_for_ratio(water_ratio, good_at_or_above=True)
@@ -343,11 +333,11 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
     water_panel = Panel(
         water_table,
         title="[bold blue]Hydration[/bold blue]",
-        border_style="blue",
+        border_style="bright_black",
         box=box.ROUNDED,
         padding=(0, 1),
     )
-
+    
     # ── Weight panel ──────────────────────────────────────────────────────────
     weight_table = Table.grid(padding=(0, 2))
     weight_table.add_column(justify="left",  no_wrap=True)
@@ -396,20 +386,31 @@ def render_dashboard(summary: DailySummary, units: str, console: Console | None 
     weight_panel = Panel(
         weight_table,
         title="[bold green]Weight[/bold green]",
-        border_style="green",
+        border_style="bright_black",
         box=box.ROUNDED,
         padding=(0, 1),
     )
-
-    # ── Layout: all three panels in a fixed-height table row ─────────────────
-    layout = Table.grid(expand=True)
-    layout.add_column(ratio=1)
-    layout.add_column(ratio=1)
-    layout.add_column(ratio=1)
-    layout.add_row(calories_panel, water_panel, weight_panel)
-
-    console.print(layout)
+    
+    cards = Columns(
+        [calories_panel, water_panel, weight_panel], 
+        expand = True, 
+        equal = True, 
+    ) 
+    
+    
+    
+    dashboard = Panel(
+        cards,
+        title=f"[bold white]Daily Dashboard[/bold white] [bright_black]•[/bright_black] [dim white]{summary.day:%b %d, %Y}[/dim white]", 
+        border_style="magenta",
+        box=box.ROUNDED,
+        padding=(0, 1),
+    )
+    
+    console.print(dashboard) 
     console.print()
+    console.print()
+        
 
 
 def render_main_dashboard(env, console: Console | None = None) -> None:

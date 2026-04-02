@@ -3,6 +3,11 @@ from __future__ import annotations
 
 from typing import List
 
+from rich.panel import Panel 
+from rich.table import Table 
+from rich.text import Text
+from rich import box 
+
 from core.dashboard_manager import render_main_dashboard 
 from core.console_manager import cprint, cinput, clear_console
 from core.data_manager import Environment
@@ -10,7 +15,27 @@ from core.data_manager import Environment
 from core.menu_manager import get_menu
 from interface.common import MenuItem 
 
-
+def _render_menu(items) -> Panel: 
+    table = Table.grid(padding=(0,2)) 
+    table.add_column(style="bold cyan", no_wrap=True, width=3)
+    table.add_column(style="white") 
+    
+    for it in items: 
+        key_text = Text.assemble(
+            ("[", "bright_black"), 
+            (it.key, "bold cyan"), 
+            ("]", "bright_black"),
+        )
+        table.add_row(key_text, it.label)
+    
+    return Panel( 
+        table, 
+        title="[bold white]Main Menu[/bold white]", 
+        border_style="magenta",
+        box=box.ROUNDED,
+        padding=(0,1),
+    ) 
+    
 def run_main_menu(env: Environment) -> None:
     """Main entry menu. Keeps orchestration here, delegates features to actions."""
     FOOD_DIARY_MENU = "food_diary_menu"
@@ -28,13 +53,8 @@ def run_main_menu(env: Environment) -> None:
     while True:
         clear_console()
         render_main_dashboard(env)
-        cprint("[bold purple]Multipurpose Health Tool[/bold purple]")
-        cprint("[dim]Select an option:[/dim]\n")
-
-        for it in items:
-            cprint(f"  [cyan]{it.key}[/cyan]) {it.label}")
-
-        choice = cinput("\nChoice: ").strip().lower()
+        cprint(_render_menu(items))
+        choice = cinput("[magenta] Choice[/magenta]: ").strip().lower()
 
         match = next((it for it in items if it.key == choice), None)
         if not match:
