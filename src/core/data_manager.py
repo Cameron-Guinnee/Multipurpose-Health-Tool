@@ -35,7 +35,8 @@ PROFILE_PATH = DATA_DIR / "profile.json"
 CONFIG_PATH = DATA_DIR / "config.json"
 GOALS_PATH = DATA_DIR / "goals.json"
 CUSTOM_FOODS_PATH = DATA_DIR / "custom_foods.json"
-
+CUSTOM_RECIPES_PATH = DATA_DIR / "custom_recipes.json" 
+CUSTOM_MEALS_PATH = DATA_DIR / "custom_meals.json"  
 
 # ----------------------------
 # Time helpers
