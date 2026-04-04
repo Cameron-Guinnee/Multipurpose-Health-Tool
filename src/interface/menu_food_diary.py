@@ -27,6 +27,7 @@ from core.log_manager import (
 )
 from core.fdc_importer import search_foods, db_stats
 from core.data_manager import DATA_DIR
+from interface.common import MenuItem,build_menu_panel,run_menu_action 
 
 FDC_DB_PATH = DATA_DIR / "fdc" / "fdc.db"
 _FDC_SEARCH_LIMIT = 15
@@ -145,60 +146,55 @@ def _make_custom_meal(name: str, items: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-
-def run_food_diary_menu(env: Environment) -> None:
-    units = str(env.config.get("units", "imperial")).strip().lower()
-    viewed_date = date.today()
-
-    while True:
-        clear_console()
-        today = date.today()
-        _render_food_diary(viewed_date, units)
-
-        is_today  = viewed_date == today
-        nav_next  = "[cyan]>[/cyan] next day" if not is_today else "[dim]> next day[/dim]"
-        nav_today = "  [cyan]t[/cyan] today"  if not is_today else ""
-        cprint(f"\n  [cyan]<[/cyan] prev day    {nav_next}    [cyan]g[/cyan] go to date{nav_today}")
-
-        cprint("\n[bold purple]Food Diary[/bold purple]")
-        cprint("[dim]Select an option:[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Create an entry")
-        cprint("  [cyan]2[/cyan]) Delete an entry")
-        cprint("  [cyan]3[/cyan]) Manage custom foods")
-        cprint("  [cyan]4[/cyan]) Manage recipes")
-        cprint("  [cyan]5[/cyan]) Manage meals")
-        cprint("  [cyan]b[/cyan]) Back")
-
-        choice = cinput("\nChoice: ").strip().lower()
-
-        if choice == "1":
-            _log_entry(viewed_date, units)
-        elif choice == "2":
-            _delete_food(viewed_date)
-        elif choice == "3":
-            _manage_custom_foods_menu(units)
-        elif choice == "4":
-            _manage_custom_recipes_menu(units)
-        elif choice == "5":
-            _manage_custom_meals_menu(units)
-        elif choice == "<":
-            viewed_date -= timedelta(days=1)
-        elif choice == ">":
-            if viewed_date < today:
-                viewed_date += timedelta(days=1)
-        elif choice == "t":
-            viewed_date = today
-        elif choice == "g":
-            jumped = _prompt_date(today)
-            if jumped is not None:
-                viewed_date = jumped
-        elif choice == "b":
-            return
-        else:
-            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
-            cinput("")
-
-
+def run_food_diary_menu(env: Environment) -> None: 
+    units = str(env.config.get("units", "imperial")).strip().lower() 
+    viewed_date = date.today() 
+    
+    while True: 
+        clear_console() 
+        today = date.today() 
+        _render_food_diary(viewed_date, units) 
+    
+        is_today = (viewed_date == today)
+        _render_food_diary_nav(is_today) 
+    
+        items = [ 
+            MenuItem("1", "Create an entry", lambda _: _log_entry(viewed_date, units)),
+            MenuItem("2", "Delete an entry", lambda _: _delete_food(viewed_date)), 
+            MenuItem("3", "Manage custom foods", lambda _: _manage_custom_foods_menu(units)),
+            MenuItem("4", "Manage recipes", lambda _: _manage_custom_recipes_menu(units)), 
+            MenuItem("5", "Manage meals", lambda _: _manage_custom_meals_menu(units)), 
+            MenuItem("b", "Back", lambda _: None)
+        ]
+    
+        cprint("") 
+        cprint(build_menu_panel("Food diary", items, note="Select an option.")) 
+    
+        choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower()
+    
+        match choice: 
+            case "<": 
+                viewed_date -= timedelta(days=1) 
+                continue 
+            case ">": 
+                if viewed_date < today: 
+                    viewed_date += timedelta(days=1) 
+                continue
+            case "t": 
+                viewed_date = today 
+                continue 
+            case "g": 
+                jumped = _prompt_date(today) 
+                if jumped is not None: 
+                    viewed_date = jumped 
+                continue 
+            case "b": 
+                return 
+             
+        if not run_menu_action(items, choice, env): 
+            cprint("[yellow]Invalid choice. Press enter to try again.[/yellow]") 
+            cinput("") 
+   
 # ---------------------------------------------------------------------------
 # Date navigation
 # ---------------------------------------------------------------------------
@@ -318,6 +314,36 @@ def _render_food_diary(d: date, units: str) -> None:
     else:
         cprint(f"  [dim]Hydration  {water_display}  (no drinks logged)[/dim]")
 
+def _render_food_diary_nav(is_today: bool) -> None: 
+    nav = Text() 
+    nav.append("  ")
+    
+    nav.append("[", "bright_black") 
+    nav.append("<", "bold cyan") 
+    nav.append("]", "bright_black")
+    nav.append(" Prev day", "white") 
+    nav.append("   ") 
+    
+    nav.append("[", "bright_black") 
+    nav.append(">", "bold cyan" if not is_today else "dim") 
+    nav.append("]", "bright_black") 
+    nav.append(" Next day", "white" if not is_today else "dim") 
+    nav.append("   ")
+
+    nav.append("[", "bright_black") 
+    nav.append("g", "bold cyan") 
+    nav.append("]", "bright_black") 
+    nav.append(" Go to date", "white") 
+    
+    if not is_today: 
+        nav.append("   ")
+        nav.append("[", "bright_black") 
+        nav.append("t", "bold cyan") 
+        nav.append("]", "bright_black") 
+        nav.append(" Today", "white") 
+
+    cprint("") 
+    cprint(nav) 
 
 def _render_custom_foods_table(foods: List[Dict[str, Any]]) -> None:
     console = get_console()
@@ -436,38 +462,37 @@ def _render_search_results(results: List[Dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Custom foods management
 # ---------------------------------------------------------------------------
-
-def _manage_custom_foods_menu(units: str) -> None:
-    while True:
-        clear_console()
-        foods = _load_custom_foods()
-
-        if foods:
+def _manage_custom_foods_menu(units: str) -> None: 
+    while True: 
+        clear_console() 
+        foods = _load_custom_foods() 
+        
+        if foods: 
             _render_custom_foods_table(foods)
-        else:
-            cprint("[dim]No custom foods defined yet.[/dim]\n")
-
-        cprint("\n[bold purple]Manage Custom Foods[/bold purple]")
-        cprint("[dim]Select an option:[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Add a custom food or drink")
-        if foods:
-            cprint("  [cyan]2[/cyan]) Edit a custom food")
-            cprint("  [cyan]3[/cyan]) Delete a custom food")
-        cprint("  [cyan]b[/cyan]) Back")
-
-        choice = cinput("\nChoice: ").strip().lower()
-
-        if choice == "1":
-            _add_custom_food(foods, units)
-        elif choice == "2" and foods:
-            _edit_custom_food(foods, units)
-        elif choice == "3" and foods:
-            _delete_custom_food(foods)
-        elif choice == "b":
-            return
-        else:
-            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
+        else: 
+            # TODO: Render an empty table when no custom foods are defined, as is done for the food diary itself when no foods are logged 
+            cprint("[dim] No custom foods defined yet.[/dim]\n") 
+        
+        items = [ 
+            MenuItem("1", "Add a custom food/drink", lambda _: _add_custom_food(foods, units)),
+            MenuItem("2", "Edit a custom food/drink", lambda _: _edit_custom_food(foods, units), enabled=bool(foods)),
+            MenuItem("3", "Delete a custom food/drink", lambda _: _delete_custom_food(foods), enabled=bool(foods)), 
+            MenuItem("b", "Back", lambda _: None),
+        ]
+        
+        cprint("") 
+        cprint(build_menu_panel("Manage Custom Foods", items, note="Select an option.")) 
+        
+        choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower() 
+        
+        if choice == "b": 
+            return 
+        
+        if not run_menu_action(items, choice, None): 
+            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]") 
             cinput("")
+
+ 
 
 
 def _prompt_food_fields(
@@ -775,38 +800,35 @@ def _build_ingredient_list(units: str, existing: Optional[List[Dict]] = None) ->
 # ---------------------------------------------------------------------------
 # Recipes management
 # ---------------------------------------------------------------------------
-
-def _manage_custom_recipes_menu(units: str) -> None:
-    while True:
-        clear_console()
-        recipes = _load_custom_recipes()
-
-        if recipes:
-            _render_custom_recipes_table(recipes)
-        else:
+def _manage_custom_recipes_menu(units: str) -> None: 
+    while True: 
+        clear_console() 
+        recipes = _load_custom_recipes() 
+        
+        if recipes: 
+            _render_custom_recipes_table(recipes) 
+        else: 
+            # TODO: Render an empty table when no custom recipes are defined, as is done for the food diary itself when no foods are logged 
             cprint("[dim]No custom recipes defined yet.[/dim]\n")
-
-        cprint("\n[bold purple]Manage Recipes[/bold purple]")
-        cprint("[dim]A recipe is a single food item built from summed ingredients.[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Add a recipe")
-        if recipes:
-            cprint("  [cyan]2[/cyan]) Edit a recipe")
-            cprint("  [cyan]3[/cyan]) Delete a recipe")
-        cprint("  [cyan]b[/cyan]) Back")
-
-        choice = cinput("\nChoice: ").strip().lower()
-
-        if choice == "1":
-            _add_custom_recipe(units)
-        elif choice == "2" and recipes:
-            _edit_custom_recipe(recipes, units)
-        elif choice == "3" and recipes:
-            _delete_custom_recipe(recipes)
-        elif choice == "b":
-            return
-        else:
-            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
-            cinput("")
+        
+        items = [ 
+            MenuItem("1", "Add a recipe", lambda _: _add_custom_recipe(units)), 
+            MenuItem("2", "Edit a recipe", lambda _: _edit_custom_recipe(recipes, units), enabled=bool(recipes)),
+            MenuItem("3", "Delete a recipe", lambda _: _delete_custom_recipe(recipes), enabled=bool(recipes)), 
+            MenuItem("b", "Back", lambda _: None),
+        ]
+        
+        cprint("")
+        cprint(build_menu_panel("Manage Recipes", items, note="A recipe is a single food item built from summed ingredients.",)) 
+        
+        choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower() 
+        
+        if choice == "b": 
+            return 
+            
+        if not run_menu_action(items, choice, None): 
+            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]") 
+            cinput("") 
 
 
 def _add_custom_recipe(units: str) -> None:
@@ -877,38 +899,36 @@ def _delete_custom_recipe(recipes: List[Dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Meals management
 # ---------------------------------------------------------------------------
-
-def _manage_custom_meals_menu(units: str) -> None:
-    while True:
-        clear_console()
-        meals = _load_custom_meals()
-
-        if meals:
-            _render_custom_meals_table(meals)
-        else:
+def _manage_custom_meals_menu(units: str) -> None: 
+    while True: 
+        clear_console() 
+        meals = _load_custom_meals() 
+        
+        if meals: 
+            _render_custom_meals_table(meals) 
+        else: 
+            # TODO: Render an empty table when no custom meals are defined, as is done for the food diary itself when no food items are logged
             cprint("[dim]No custom meals defined yet.[/dim]\n")
-
-        cprint("\n[bold purple]Manage Meals[/bold purple]")
-        cprint("[dim]A meal is a group of items logged together as separate entries.[/dim]\n")
-        cprint("  [cyan]1[/cyan]) Add a meal")
-        if meals:
-            cprint("  [cyan]2[/cyan]) Edit a meal")
-            cprint("  [cyan]3[/cyan]) Delete a meal")
-        cprint("  [cyan]b[/cyan]) Back")
-
-        choice = cinput("\nChoice: ").strip().lower()
-
-        if choice == "1":
-            _add_custom_meal(units)
-        elif choice == "2" and meals:
-            _edit_custom_meal(meals, units)
-        elif choice == "3" and meals:
-            _delete_custom_meal(meals)
-        elif choice == "b":
-            return
-        else:
-            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
-            cinput("")
+        
+        items = [ 
+            MenuItem("1", "Add a meal", lambda _: _add_custom_meal(units)), 
+            MenuItem("2", "Edit a meal", lambda _: _edit_custom_meal(meals, units), enabled=bool(meals)),
+            MenuItem("3", "Delete a meal", lambda _: _delete_custom_meal(meals), enabled=bool(meals)), 
+            MenuItem("b", "Back", lambda _: None),
+        ]
+        
+        cprint("") 
+        cprint(build_menu_panel("Manage Meals", items, note="A meal is a group of items logged together as separate entries."))
+        
+        choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower() 
+        
+        if choice == "b": 
+            return 
+        
+        if not run_menu_action(items, choice, None): 
+            cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]") 
+            cinput("") 
+            
 
 
 def _add_custom_meal(units: str) -> None:
