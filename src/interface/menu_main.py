@@ -29,6 +29,7 @@ def run_main_menu(env: Environment) -> None:
     
     while True: 
         clear_console() 
+        env.reload()
         render_main_dashboard(env) 
         cprint(build_menu_panel("Main Menu", items)) 
         choice = cinput("[magenta]Choice[/magenta]: ").strip().lower() 

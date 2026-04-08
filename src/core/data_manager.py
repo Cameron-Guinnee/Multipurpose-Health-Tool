@@ -246,6 +246,12 @@ class Environment:
     config: Dict[str, Any]
     profile: Dict[str, Any]
     goals: Dict[str, Any]
+    
+    def reload(self) -> None: 
+        """Re-read all data files from disk into this environment instance.""" 
+        self.config = load_json(CONFIG_PATH) 
+        self.profile = load_json(PROFILE_PATH) 
+        self.goals = load_json(GOALS_PATH) 
 
 
 def ensure_environment() -> Environment:
