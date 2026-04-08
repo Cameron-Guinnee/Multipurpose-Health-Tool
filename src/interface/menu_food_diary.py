@@ -899,6 +899,7 @@ def _delete_custom_recipe(recipes: List[Dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Meals management
 # ---------------------------------------------------------------------------
+
 def _manage_custom_meals_menu(units: str) -> None: 
     while True: 
         clear_console() 
@@ -1268,16 +1269,17 @@ def _log_from_template(d: date, template: Dict[str, Any], units: str) -> None:
     cinput("\nPress Enter to continue.")
 
 
+
 def _delete_food(d: date) -> None:
     clear_console()
     day     = load_day(d)
     entries = day.get("food_entries", [])
-
+ 
     if not entries:
         cprint("[yellow]No entries to delete.[/yellow]")
         cinput("\nPress Enter to continue.")
         return
-
+ 
     cprint("[bold]Delete Entry[/bold]\n")
     for e in entries:
         cat       = e.get("meal_category", "")
@@ -1287,17 +1289,28 @@ def _delete_food(d: date) -> None:
             f"[{cat_style}]{cat.capitalize()}[/{cat_style}]  "
             f"{e['name']} — {int(e.get('calories', 0))} kcal"
         )
-
-    entry_id = cinput("\nEnter ID to delete (or blank to cancel): ").strip()
-    if not entry_id:
+ 
+    raw_input = cinput("\nEnter ID(s) to delete — separate multiple with ',' or ';' (or blank to cancel): ").strip()
+    if not raw_input:
         return
-
-    removed = delete_entry(d, "food_entries", entry_id)
-    if removed:
-        cprint("[green]✔ Entry deleted.[/green]")
-    else:
-        cprint("[yellow]No entry found with that ID.[/yellow]")
+ 
+    import re
+    ids_to_delete = [id_.strip() for id_ in re.split(r"[,;]", raw_input) if id_.strip()]
+ 
+    deleted, not_found = 0, []
+    for entry_id in ids_to_delete:
+        if delete_entry(d, "food_entries", entry_id):
+            deleted += 1
+        else:
+            not_found.append(entry_id)
+ 
+    if deleted:
+        cprint(f"[green]✔ {deleted} entr{'y' if deleted == 1 else 'ies'} deleted.[/green]")
+    if not_found:
+        cprint(f"[yellow]No entry found for ID(s): {', '.join(not_found)}[/yellow]")
     cinput("\nPress Enter to continue.")
+
+
 
 
 # ---------------------------------------------------------------------------
