@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import uuid
+import re
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -19,97 +19,23 @@ from core.data_manager import (
 )
 from core.log_manager import append_entry, delete_entry, load_day
 
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-BIOMETRICS_PATH = DATA_DIR / "biometrics.json"
-
-# Ordered list of supported metric types with display metadata.
-# Each entry: (key, label, unit_metric, unit_imperial, description)
-# Values are ALWAYS stored in the metric (SI) unit.
-_METRIC_DEFS: List[tuple] = [
-    ("weight",        "Weight",          "kg",    "lbs",  None),
-    ("bp_systolic",   "Blood Pressure",  "mmHg",  "mmHg", "systolic"),
-    ("bp_diastolic",  "Blood Pressure",  "mmHg",  "mmHg", "diastolic"),
-    ("heart_rate",    "Heart Rate",      "bpm",   "bpm",  None),
-    ("waist",         "Waist",           "cm",    "in",   None),
-    ("body_fat_pct",  "Body Fat %",      "%",     "%",    None),
-]
-
-# Metrics displayed as a pair (rendered on one row).
-_BP_PAIR = ("bp_systolic", "bp_diastolic")
-
-# Row style hint per metric for the log table.
-_METRIC_STYLE: Dict[str, str] = {
-    "weight":       "cyan",
-    "bp_systolic":  "red",
-    "bp_diastolic": "red",
-    "heart_rate":   "magenta",
-    "waist":        "yellow",
-    "body_fat_pct": "green",
-}
-
-
-# ---------------------------------------------------------------------------
-# Persistence
-# ---------------------------------------------------------------------------
-
-def _load_biometrics() -> Dict[str, Any]:
-    """Return the full biometrics store: {"entries": [...]}."""
-    if not BIOMETRICS_PATH.exists():
-        return {"entries": []}
-    try:
-        with BIOMETRICS_PATH.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data.get("entries"), list):
-            data["entries"] = []
-        return data
-    except (json.JSONDecodeError, OSError):
-        return {"entries": []}
-
-
-def _save_biometrics(data: Dict[str, Any]) -> None:
-    _atomic_write_json(BIOMETRICS_PATH, data)
-
-
-def _entries_for_date(d: date) -> List[Dict[str, Any]]:
-    """Return all biometric entries logged on *d*, sorted by logged_at."""
-    ds = d.isoformat()
-    entries = _load_biometrics().get("entries", [])
-    return [e for e in entries if e.get("date") == ds]
-
-
-def _make_entry(
-    metric: str,
-    value: float,
-    d: date,
-    note: str = "",
-) -> Dict[str, Any]:
-    return {
-        "id":     uuid.uuid4().hex[:8],
-        "date":   d.isoformat(),
-        "metric": metric,
-        "value":  round(value, 2),
-        "note":   note.strip(),
-    }
-
-
-def _append_biometric_entry(entry: Dict[str, Any]) -> None:
-    data = _load_biometrics()
-    data["entries"].append(entry)
-    _save_biometrics(data)
-
-
-def _delete_biometric_entry(entry_id: str) -> bool:
-    data  = _load_biometrics()
-    before = len(data["entries"])
-    data["entries"] = [e for e in data["entries"] if e.get("id") != entry_id]
-    if len(data["entries"]) < before:
-        _save_biometrics(data)
-        return True
-    return False
+# Shared constants and helpers live in biometrics_core to avoid a circular
+# import between this module and menu_biometrics_trends.
+from interface.biometrics_core import (
+    BIOMETRICS_PATH,
+    _METRIC_DEFS,
+    _BP_PAIR,
+    _METRIC_STYLE,
+    _load_biometrics,
+    _save_biometrics,
+    _entries_for_date,
+    _make_entry,
+    _append_biometric_entry,
+    _delete_biometric_entry,
+    _metric_label_unit,
+    _to_display,
+    _fmt_value,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +51,7 @@ def _sync_weight_to_profile(env: Environment, weight_kg: float) -> None:
                 profile = json.load(f)
         else:
             profile = {}
-        
+
         profile.pop("weight_lbs", None)
         profile["weight_kg"] = round(weight_kg, 2)
         _atomic_write_json(profile_path, profile)
@@ -149,11 +75,19 @@ def run_biometrics_menu(env: Environment) -> None:
         _render_biometrics_log(viewed_date, units)
         _render_biometrics_nav(is_today)
 
+        # Lazy import breaks the circular dependency: trends imports from
+        # biometrics_core (not from this module), so by the time the user
+        # presses "3" both modules are fully loaded.
+        def _open_trends(e: Environment) -> None:
+            from interface.menu_biometrics_trends import run_trends_menu
+            run_trends_menu(e)
+
         items = [
-            MenuItem("1", "Log a biometric",   lambda _: _log_biometric(viewed_date, units, env)),
-            MenuItem("2", "Delete an entry",    lambda _: _delete_biometric(viewed_date, units),
+            MenuItem("1", "Log a biometric",    lambda _: _log_biometric(viewed_date, units, env)),
+            MenuItem("2", "Delete an entry",     lambda _: _delete_biometric(viewed_date, units),
                      enabled=bool(_entries_for_date(viewed_date))),
-            MenuItem("b", "Back", lambda _: None),
+            MenuItem("3", "View trends (chart)", _open_trends),
+            MenuItem("b", "Back",                lambda _: None),
         ]
 
         cprint("")
@@ -250,7 +184,6 @@ def _render_biometrics_log(d: date, units: str) -> None:
     if not entries:
         table.add_row("[dim]—[/dim]", "[dim]Nothing logged yet[/dim]", "", "")
     else:
-        # Render BP as a single "120 / 80" row when both halves are present.
         rendered_ids: set = set()
         for e in entries:
             if e["id"] in rendered_ids:
@@ -260,7 +193,6 @@ def _render_biometrics_log(d: date, units: str) -> None:
             style  = _METRIC_STYLE.get(metric, "white")
 
             if metric == "bp_systolic":
-                # Look for a matching diastolic entry logged on same date.
                 dia = next(
                     (x for x in entries if x["metric"] == "bp_diastolic"
                      and x["id"] not in rendered_ids),
@@ -269,7 +201,7 @@ def _render_biometrics_log(d: date, units: str) -> None:
                 if dia:
                     rendered_ids.add(e["id"])
                     rendered_ids.add(dia["id"])
-                    bp_str = f"{int(e['value'])} / {int(dia['value'])} mmHg"  # mmHg: no conversion needed
+                    bp_str = f"{int(e['value'])} / {int(dia['value'])} mmHg"
                     note   = e.get("note") or dia.get("note") or ""
                     table.add_row(
                         f"{e['id']}, {dia['id']}",
@@ -336,8 +268,6 @@ def _log_biometric(d: date, units: str, env: Environment) -> None:
     clear_console()
     cprint("[bold]Log Biometric[/bold]\n")
 
-    # Present metric choices, skipping the raw bp_diastolic (it's prompted
-    # alongside systolic as a pair).
     choices = [
         ("1", "Weight"),
         ("2", "Blood Pressure"),
@@ -469,7 +399,9 @@ def _log_simple(
 # Deletion
 # ---------------------------------------------------------------------------
 
-# TODO: Make it so that, if you delete the most recent logged weight, the user's current weight reverts to the newest remaining weight (or to the starting weight if no logged weights exist)
+# TODO: Make it so that, if you delete the most recent logged weight, the user's
+# current weight reverts to the newest remaining weight (or to the starting
+# weight if no logged weights exist).
 def _delete_biometric(d: date, units: str) -> None:
     clear_console()
     entries = _entries_for_date(d)
@@ -494,7 +426,6 @@ def _delete_biometric(d: date, units: str) -> None:
             + (f"  [dim]{e['note']}[/dim]" if e.get("note") else "")
         )
 
-    import re
     raw = cinput("\nEnter ID(s) to delete — separate multiple with ',' or ';' (or blank to cancel): ").strip()
     if not raw:
         return
@@ -516,46 +447,20 @@ def _delete_biometric(d: date, units: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Shared utilities
+# Misc helpers (biometrics-menu-specific — not shared with trends)
 # ---------------------------------------------------------------------------
-
-def _metric_label_unit(metric: str, units: str) -> tuple[str, str]:
-    """Return (display_label, display_unit) for a given metric key."""
-    for key, label, u_metric, u_imperial, _ in _METRIC_DEFS:
-        if key == metric:
-            return label, (u_imperial if units == "imperial" else u_metric)
-    return metric.replace("_", " ").title(), ""
-
-
-def _to_display(stored_value: float, metric: str, units: str) -> float:
-    """Convert a stored (metric/SI) value to the user's preferred display unit."""
-    if units != "imperial":
-        return stored_value
-    if metric == "weight":
-        return round(stored_value * 2.20462, 1)   # kg → lbs
-    if metric == "waist":
-        return round(stored_value / 2.54, 1)       # cm → in
-    return stored_value  # mmHg, bpm, % — no conversion needed
-
-
-def _fmt_value(value: float, metric: str) -> str:
-    """Format a stored value for display."""
-    if metric in ("bp_systolic", "bp_diastolic", "heart_rate"):
-        return str(int(round(value)))
-    return f"{value:.1f}"
-
 
 def _bp_category_hint(systolic: float, diastolic: float) -> None:
     """Print an informational BP category label (AHA guidelines)."""
     s, d = systolic, diastolic
     if s < 120 and d < 80:
-        cat, style = "Normal",                  "green"
+        cat, style = "Normal",              "green"
     elif s < 130 and d < 80:
-        cat, style = "Elevated",                "yellow"
+        cat, style = "Elevated",            "yellow"
     elif s < 140 or d < 90:
-        cat, style = "High — Stage 1",          "yellow"
+        cat, style = "High — Stage 1",      "yellow"
     elif s >= 180 or d >= 120:
-        cat, style = "Hypertensive Crisis",     "bold red"
+        cat, style = "Hypertensive Crisis", "bold red"
     else:
-        cat, style = "High — Stage 2",          "red"
+        cat, style = "High — Stage 2",      "red"
     cprint(f"  [{style}]Category: {cat}[/{style}]  [dim](AHA guidelines)[/dim]")
