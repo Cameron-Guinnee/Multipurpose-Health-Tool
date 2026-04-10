@@ -45,12 +45,6 @@ def iso_now() -> str:
     """ISO 8601 timestamp with local timezone offset (seconds precision)."""
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
-
-def timestamp() -> str:
-    """Human-friendly timestamp for logs."""
-    return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
-
-
 # ----------------------------
 # Defaults (generated, not frozen at import time)
 # ----------------------------
