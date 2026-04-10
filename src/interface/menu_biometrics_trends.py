@@ -32,7 +32,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.console_manager import cprint, cinput, clear_console
 from core.data_manager import Environment, DATA_DIR
-from interface.common import MenuItem, build_menu_panel, run_menu_action
+
+from interface.shared import MenuItem, build_menu_panel, run_menu_action
 from interface.biometrics_core import (
     _load_biometrics,
     _to_display,

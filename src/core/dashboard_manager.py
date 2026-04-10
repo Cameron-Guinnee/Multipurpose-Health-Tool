@@ -16,7 +16,6 @@ from rich import box
 
 from core.health_manager import get_rmr_from_profile, get_tdee_from_rmr
 from core.log_manager import get_daily_totals, get_latest_weight
-from core.units import cm_to_in, kg_to_lb
 from core.console_manager import get_console
 
 
@@ -119,7 +118,7 @@ def _format_weight(weight_kg: float | None, units: str) -> str:
 
     units = (units or "").strip().lower()
     if units == "imperial":
-        weight_lb = kg_to_lb(weight_kg) 
+        weight_lb = weight_kg * 2.20462 
         return f"{weight_lb:.1f} lb"
     return f"{weight_kg:.1f} kg"
 

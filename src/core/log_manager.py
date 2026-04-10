@@ -30,7 +30,7 @@ except Exception:
     def cprint(msg: str) -> None:  # type: ignore
         print(msg)
 
-from core.data_manager import BASE_DIR, iso_now
+from core.data_manager import BASE_DIR, iso_now, _atomic_write_json
 
 
 # ---------------------------------------------------------------------------
@@ -137,14 +137,6 @@ def make_blood_pressure_entry(
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
-def _atomic_write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    os.replace(tmp, path)
-
-
 def load_month(year: int, month: int) -> Dict[str, Dict[str, List[Any]]]:
     """Load a monthly log file, returning an empty dict if it doesn't exist."""
     path = _log_path(year, month)

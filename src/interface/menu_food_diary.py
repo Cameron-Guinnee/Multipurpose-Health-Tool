@@ -8,8 +8,6 @@ from typing import Any, Dict, List, Optional
 from rich.table import Table
 from rich.text import Text
 
-from interface.prompts import _prompt_str, _prompt_float, _prompt_choice
-
 from core.console_manager import cprint, cinput, clear_console, get_console
 from core.data_manager import (
     Environment,
@@ -27,7 +25,8 @@ from core.log_manager import (
 )
 from core.fdc_importer import search_foods, db_stats
 from core.data_manager import DATA_DIR
-from interface.common import MenuItem,build_menu_panel,run_menu_action 
+
+from interface.shared import MenuItem, build_menu_panel, run_menu_action, prompt_str, prompt_float, prompt_choice
 
 FDC_DB_PATH = DATA_DIR / "fdc" / "fdc.db"
 _FDC_SEARCH_LIMIT = 15
@@ -507,18 +506,18 @@ def _prompt_food_fields(
     volume_ml_default: Optional[float] = None,
     units: str = "imperial",
 ) -> Optional[Dict[str, Any]]:
-    name = _prompt_str("Name: ", default=name_default)
+    name = prompt_str("Name: ", default=name_default)
     if not name:
         return None
 
-    quantity  = _prompt_float("Quantity (e.g. 1.5): ", min_=0.01, default=quantity_default)
-    unit      = _prompt_str("Unit (e.g. cup, g, oz, serving): ", default=unit_default)
-    calories  = _prompt_float("Calories: ",    min_=0.0, default=calories_default)
-    protein_g = _prompt_float("Protein (g): ", min_=0.0, default=protein_default)
-    carbs_g   = _prompt_float("Carbs (g): ",   min_=0.0, default=carbs_default)
-    fat_g     = _prompt_float("Fat (g): ",     min_=0.0, default=fat_default)
+    quantity  = prompt_float("Quantity (e.g. 1.5): ", min_=0.01, default=quantity_default)
+    unit      = prompt_str("Unit (e.g. cup, g, oz, serving): ", default=unit_default)
+    calories  = prompt_float("Calories: ",    min_=0.0, default=calories_default)
+    protein_g = prompt_float("Protein (g): ", min_=0.0, default=protein_default)
+    carbs_g   = prompt_float("Carbs (g): ",   min_=0.0, default=carbs_default)
+    fat_g     = prompt_float("Fat (g): ",     min_=0.0, default=fat_default)
 
-    is_drink = _prompt_choice(
+    is_drink = prompt_choice(
         "Is this a drink? (yes/no): ", choices=("yes", "no"),
         default="yes" if is_drink_default else "no",
     ) == "yes"
@@ -526,13 +525,13 @@ def _prompt_food_fields(
     volume_ml: Optional[float] = None
     if is_drink:
         if units == "imperial":
-            vol_oz = _prompt_float(
+            vol_oz = prompt_float(
                 "Volume per serving (oz): ", min_=0.0,
                 default=round(volume_ml_default / 29.5735, 1) if volume_ml_default else None,
             )
             volume_ml = vol_oz * 29.5735
         else:
-            volume_ml = _prompt_float("Volume per serving (mL): ", min_=0.0, default=volume_ml_default)
+            volume_ml = prompt_float("Volume per serving (mL): ", min_=0.0, default=volume_ml_default)
 
     return dict(
         name=name, calories=calories, protein_g=protein_g, carbs_g=carbs_g, fat_g=fat_g,
@@ -692,7 +691,7 @@ def _ingredient_from_fdc(food: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         s_label = "100g"
         cprint(f"\n[bold]{name}[/bold]  [dim](no serving size — using 100g)[/dim]")
 
-    servings = _prompt_float(f"Servings [{s_label}]: ", min_=0.01, default=1.0)
+    servings = prompt_float(f"Servings [{s_label}]: ", min_=0.01, default=1.0)
     scale    = s_grams * servings / 100.0
 
     return {
@@ -721,7 +720,7 @@ def _pick_ingredient_from_custom() -> Optional[Dict[str, Any]]:
 
     f     = foods[idx]
     base  = f.get("quantity", 1.0)
-    qty   = _prompt_float(f"Quantity [{f.get('unit', 'serving')}]: ", min_=0.01, default=base)
+    qty   = prompt_float(f"Quantity [{f.get('unit', 'serving')}]: ", min_=0.01, default=base)
     scale = qty / base if base else 1.0
 
     return {
@@ -736,15 +735,15 @@ def _pick_ingredient_from_custom() -> Optional[Dict[str, Any]]:
 
 
 def _pick_ingredient_manually(name_prefill: str = "") -> Optional[Dict[str, Any]]:
-    name = _prompt_str("Name: ", default=name_prefill)
+    name = prompt_str("Name: ", default=name_prefill)
     if not name:
         return None
-    quantity  = _prompt_float("Quantity: ",    min_=0.01, default=1.0)
-    unit      = _prompt_str("Unit: ",          default="serving")
-    calories  = _prompt_float("Calories: ",    min_=0.0,  default=0.0)
-    protein_g = _prompt_float("Protein (g): ", min_=0.0,  default=0.0)
-    carbs_g   = _prompt_float("Carbs (g): ",   min_=0.0,  default=0.0)
-    fat_g     = _prompt_float("Fat (g): ",     min_=0.0,  default=0.0)
+    quantity  = prompt_float("Quantity: ",    min_=0.01, default=1.0)
+    unit      = prompt_str("Unit: ",          default="serving")
+    calories  = prompt_float("Calories: ",    min_=0.0,  default=0.0)
+    protein_g = prompt_float("Protein (g): ", min_=0.0,  default=0.0)
+    carbs_g   = prompt_float("Carbs (g): ",   min_=0.0,  default=0.0)
+    fat_g     = prompt_float("Fat (g): ",     min_=0.0,  default=0.0)
     return dict(name=name, calories=calories, protein_g=protein_g,
                 carbs_g=carbs_g, fat_g=fat_g, quantity=quantity, unit=unit)
 
@@ -834,7 +833,7 @@ def _manage_custom_recipes_menu(units: str) -> None:
 def _add_custom_recipe(units: str) -> None:
     clear_console()
     cprint("[bold]Add Recipe[/bold]\n")
-    name = _prompt_str("Recipe name: ")
+    name = prompt_str("Recipe name: ")
     if not name:
         return
 
@@ -842,8 +841,8 @@ def _add_custom_recipe(units: str) -> None:
     if not ingredients:
         return
 
-    servings = _prompt_float("Total servings this recipe makes: ", min_=0.01, default=1.0)
-    unit     = _prompt_str("Serving unit (e.g. serving, slice): ", default="serving")
+    servings = prompt_float("Total servings this recipe makes: ", min_=0.01, default=1.0)
+    unit     = prompt_str("Serving unit (e.g. serving, slice): ", default="serving")
 
     recipe = _make_custom_recipe(name, ingredients, servings=servings, unit=unit)
     recipes = _load_custom_recipes()
@@ -864,7 +863,7 @@ def _edit_custom_recipe(recipes: List[Dict[str, Any]], units: str) -> None:
     existing = recipes[idx]
     cprint(f"\n[dim]Editing '{existing['name']}' — press Enter to keep current value.[/dim]\n")
 
-    name = _prompt_str("Recipe name: ", default=existing.get("name", ""))
+    name = prompt_str("Recipe name: ", default=existing.get("name", ""))
     if not name:
         return
 
@@ -872,8 +871,8 @@ def _edit_custom_recipe(recipes: List[Dict[str, Any]], units: str) -> None:
     if not ingredients:
         return
 
-    servings = _prompt_float("Total servings: ", min_=0.01, default=existing.get("servings", 1.0))
-    unit     = _prompt_str("Serving unit: ", default=existing.get("unit", "serving"))
+    servings = prompt_float("Total servings: ", min_=0.01, default=existing.get("servings", 1.0))
+    unit     = prompt_str("Serving unit: ", default=existing.get("unit", "serving"))
 
     updated = _make_custom_recipe(name, ingredients, servings=servings, unit=unit)
     updated["id"] = existing["id"]
@@ -935,7 +934,7 @@ def _manage_custom_meals_menu(units: str) -> None:
 def _add_custom_meal(units: str) -> None:
     clear_console()
     cprint("[bold]Add Meal[/bold]\n")
-    name = _prompt_str("Meal name (e.g. Burger & Fries): ")
+    name = prompt_str("Meal name (e.g. Burger & Fries): ")
     if not name:
         return
 
@@ -963,7 +962,7 @@ def _edit_custom_meal(meals: List[Dict[str, Any]], units: str) -> None:
     existing = meals[idx]
     cprint(f"\n[dim]Editing '{existing['name']}' — press Enter to keep current value.[/dim]\n")
 
-    name = _prompt_str("Meal name: ", default=existing.get("name", ""))
+    name = prompt_str("Meal name: ", default=existing.get("name", ""))
     if not name:
         return
 
@@ -1090,10 +1089,10 @@ def _log_from_fdc(d: date, food: Dict[str, Any], units: str) -> None:
         cprint(f"[bold]{name}[/bold]")
         cprint(f"[dim]No serving size on record — quantities in 100g units[/dim]\n")
 
-    meal_category = _prompt_choice(
+    meal_category = prompt_choice(
         f"Category ({'/'.join(MEAL_CATEGORIES)}): ", choices=MEAL_CATEGORIES, default="uncategorized",
     )
-    servings  = _prompt_float(f"Servings [{s_label}]: ", min_=0.01, default=1.0)
+    servings  = prompt_float(f"Servings [{s_label}]: ", min_=0.01, default=1.0)
     scale     = s_grams * servings / 100.0
     amount_ml = _prompt_drink_volume(meal_category, units)
 
@@ -1148,10 +1147,10 @@ def _log_from_recipe(d: date, units: str) -> None:
         f"{base_servings} {recipe.get('unit', 'serving')}[/dim]\n"
     )
 
-    meal_category = _prompt_choice(
+    meal_category = prompt_choice(
         f"Category ({'/'.join(MEAL_CATEGORIES)}): ", choices=MEAL_CATEGORIES, default="uncategorized",
     )
-    servings = _prompt_float(f"Servings [{recipe.get('unit', 'serving')}]: ", min_=0.01, default=1.0)
+    servings = prompt_float(f"Servings [{recipe.get('unit', 'serving')}]: ", min_=0.01, default=1.0)
     scale    = servings / base_servings if base_servings else 1.0
 
     entry = make_food_entry(
@@ -1184,7 +1183,7 @@ def _log_from_meal(d: date, units: str) -> None:
         return
 
     meal          = meals[idx]
-    meal_category = _prompt_choice(
+    meal_category = prompt_choice(
         f"Category ({'/'.join(MEAL_CATEGORIES)}): ", choices=MEAL_CATEGORIES, default="uncategorized",
     )
 
@@ -1209,19 +1208,19 @@ def _log_from_meal(d: date, units: str) -> None:
 
 
 def _log_manually(d: date, units: str, name_prefill: str = "") -> None:
-    name = _prompt_str("Name: ", default=name_prefill)
+    name = prompt_str("Name: ", default=name_prefill)
     if not name:
         return
 
-    meal_category = _prompt_choice(
+    meal_category = prompt_choice(
         f"Category ({'/'.join(MEAL_CATEGORIES)}): ", choices=MEAL_CATEGORIES, default="uncategorized",
     )
-    quantity  = _prompt_float("Quantity (e.g. 1.5): ", min_=0.01, default=1.0)
-    unit      = _prompt_str("Unit (e.g. cup, g, oz, serving): ", default="serving")
-    calories  = _prompt_float("Calories: ",    min_=0.0, default=0.0)
-    protein_g = _prompt_float("Protein (g): ", min_=0.0, default=0.0)
-    carbs_g   = _prompt_float("Carbs (g): ",   min_=0.0, default=0.0)
-    fat_g     = _prompt_float("Fat (g): ",     min_=0.0, default=0.0)
+    quantity  = prompt_float("Quantity (e.g. 1.5): ", min_=0.01, default=1.0)
+    unit      = prompt_str("Unit (e.g. cup, g, oz, serving): ", default="serving")
+    calories  = prompt_float("Calories: ",    min_=0.0, default=0.0)
+    protein_g = prompt_float("Protein (g): ", min_=0.0, default=0.0)
+    carbs_g   = prompt_float("Carbs (g): ",   min_=0.0, default=0.0)
+    fat_g     = prompt_float("Fat (g): ",     min_=0.0, default=0.0)
     amount_ml = _prompt_drink_volume(meal_category, units)
 
     entry = make_food_entry(
@@ -1241,11 +1240,11 @@ def _log_from_template(d: date, template: Dict[str, Any], units: str) -> None:
         f"[dim]{int(template['calories'])} kcal / {base_qty} {template['unit']}[/dim]\n"
     )
 
-    meal_category = _prompt_choice(
+    meal_category = prompt_choice(
         f"Category ({'/'.join(MEAL_CATEGORIES)}): ", choices=MEAL_CATEGORIES,
         default="drink" if is_drink else "uncategorized",
     )
-    quantity = _prompt_float(
+    quantity = prompt_float(
         f"Quantity [{template['unit']}] (default {base_qty}): ", min_=0.01, default=base_qty,
     )
     scale = quantity / base_qty if base_qty else 1.0
@@ -1338,8 +1337,8 @@ def _prompt_drink_volume(meal_category: str, units: str) -> Optional[float]:
     if meal_category != "drink":
         return None
     if units == "imperial":
-        oz = _prompt_float("Volume (oz, 0 to skip): ", min_=0.0, default=0.0)
+        oz = prompt_float("Volume (oz, 0 to skip): ", min_=0.0, default=0.0)
         return oz * 29.5735 if oz > 0 else None
     else:
-        ml = _prompt_float("Volume (mL, 0 to skip): ", min_=0.0, default=0.0)
+        ml = prompt_float("Volume (mL, 0 to skip): ", min_=0.0, default=0.0)
         return ml if ml > 0 else None

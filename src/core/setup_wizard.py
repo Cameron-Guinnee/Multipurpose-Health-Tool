@@ -13,8 +13,8 @@ from core.data_manager import (
     _parse_birthdate,
     _compute_age_years, 
 )
-from core.units import lb_to_kg,in_to_cm
-from interface.prompts import _prompt_birthdate,_prompt_choice,_prompt_float,_prompt_units,_prompt_str
+from interface.shared import prompt_birthdate,prompt_choice,prompt_float,prompt_units,prompt_str
+
 
 def is_setup_complete(env: Environment) -> bool: 
     cfg = env.config or {} 
@@ -39,7 +39,7 @@ def run_setup_wizard(env: Environment) -> Environment:
     cprint("[purple][=== FIRST-TIME SETUP ===][/purple]")
 
     # 1) Config / Preferences
-    units = _prompt_units(default=_safe_units(env.config))
+    units = prompt_units(default=_safe_units(env.config))
     env.config["units"] = units
 
     # optional metadata (kept internal; don't show in settings menu)
@@ -71,17 +71,17 @@ def _wizard_profile(env: Environment, units: str) -> None:
     cprint("\n[bold]Profile setup[/bold]")
     profile = env.profile
 
-    profile["name"] = _prompt_str("Name (optional): ", default=profile.get("name", ""))
+    profile["name"] = prompt_str("Name (optional): ", default=profile.get("name", ""))
 
     # Keep your existing 'gender' field, but be clear about its use:
     # If you later switch to sex_for_bmr, this is where you'd do it.
-    profile["sex_for_bmr"] = _prompt_choice(
+    profile["sex_for_bmr"] = prompt_choice(
         "Sex for BMR calculation (male/female): ",
         choices=("male", "female"),
         default=_safe_default_choice(profile.get("sex_for_bmr"), ("male", "female"), None),
     )
 
-    birthdate = _prompt_birthdate("Birthdate (YYYY-MM-DD): ", default=profile.get("birthdate", ""))
+    birthdate = prompt_birthdate("Birthdate (YYYY-MM-DD): ", default=profile.get("birthdate", ""))
     profile["birthdate"] = birthdate
 
     # NOTE: 'age' is legacy; store it only if your app still uses it.
@@ -90,15 +90,31 @@ def _wizard_profile(env: Environment, units: str) -> None:
     profile["age"] = _compute_age_years(bd) if bd else ""
 
     if units == "imperial":
-        imperial_weight = _prompt_float("Weight (lb): ", min_=1, default=kg_to_lb(profile.get("weight_kg")) if profile.get("weight_cm") else None)
-        imperial_height = _prompt_float("Height (inches): ", min_=1, default=cm_to_in(profile.get("height_cm")) if profile.get("height_cm") else None) 
-        profile["weight_kg"] = lb_to_kg(imperial_weight)
-        profile["height_cm"] = in_to_cm(imperial_height) 
+        imperial_weight = prompt_float(
+            "Weight (lb): ", 
+            min_=1, 
+            default=profile.get("weight_kg")*2.2046 if profile.get("weight_cm") else None
+        )
+        imperial_height = prompt_float(
+            "Height (inches): ", 
+            min_=1, 
+            default=profile.get("height_cm")/2.54 if profile.get("height_cm") else None
+        ) 
+        profile["weight_kg"] = imperial_weight * 0.45359237
+        profile["height_cm"] = imperial_height * 2.54
     else:
-        profile["weight_kg"] = _prompt_float("Weight (kg): ", min_=1, default=profile.get("weight_kg"))
-        profile["height_cm"] = _prompt_float("Height (cm): ", min_=1, default=profile.get("height_cm"))
+        profile["weight_kg"] = prompt_float(
+            "Weight (kg): ", 
+            min_=1, 
+            default=profile.get("weight_kg")
+        )
+        profile["height_cm"] = prompt_float(
+            "Height (cm): ", 
+            min_=1, 
+            default=profile.get("height_cm")
+        )
 
-    profile["activity_level"] = _prompt_choice(
+    profile["activity_level"] = prompt_choice(
         "Activity level (sedentary/light/moderate/very/extra): ",
         choices=("sedentary", "light", "moderate", "very", "extra"),
         default=_safe_default_choice(profile.get("activity_level"), ("sedentary", "light", "moderate", "very", "extra"), "moderate"),
@@ -109,7 +125,7 @@ def _wizard_goals(env: Environment, units: str) -> None:
     g = env.goals
     c = env.config
 
-    goal_type = _prompt_choice(
+    goal_type = prompt_choice(
         "Goal type (lose/maintain/gain): ",
         choices=("lose", "maintain", "gain"),
         default=_safe_default_choice(g.get("goal_type"), ("lose","maintain","gain"), "maintain"),
@@ -127,15 +143,31 @@ def _wizard_goals(env: Environment, units: str) -> None:
         g["target_weight"] = None
     else:
         if units == "imperial":
-            imperial_weekly_rate = _prompt_float("Weekly rate (lb/week, e.g. 0.5): ", min_=0.1, default=g.get("weekly_rate"))
-            imperial_target_weight = _prompt_float("Target weight (lb): ", min_=1, default=g.get("target_weight"))
-            g["weekly_rate"] = lb_to_kg(imperial_weekly_rate)
-            g["target_weight"] = lb_to_kg(imperial_target_weight)  
+            imperial_weekly_rate = prompt_float(
+                "Weekly rate (lb/week, e.g. 0.5): ", 
+                min_=0.1, 
+                default=g.get("weekly_rate")
+            )
+            imperial_target_weight = prompt_float(
+                "Target weight (lb): ", 
+                min_=1, 
+                default=g.get("target_weight")
+            )
+            g["weekly_rate"] = imperial_weekly_rate * 0.45359237
+            g["target_weight"] = imperial_target_weight * 0.45359237  
         else:
-            g["weekly_rate"] = _prompt_float("Weekly rate (kg/week, e.g. 0.25): ", min_=0.05, default=g.get("weekly_rate"))
-            g["target_weight"] = _prompt_float("Target weight (kg): ", min_=1, default=g.get("target_weight"))
+            g["weekly_rate"] = prompt_float(
+                "Weekly rate (kg/week, e.g. 0.25): ", 
+                min_=0.05, 
+                default=g.get("weekly_rate")
+            )
+            g["target_weight"] = prompt_float(
+                "Target weight (kg): ", 
+                min_=1, 
+                default=g.get("target_weight")
+            )
 
-    mode = _prompt_choice(
+    mode = prompt_choice(
         "Calorie target mode (auto/manual): ",
         choices=("auto", "manual"),
         default=_safe_default_choice(c.get("calorie_target_mode"), ("auto","manual"), "auto"),
@@ -143,7 +175,7 @@ def _wizard_goals(env: Environment, units: str) -> None:
     c["calorie_target_mode"] = mode
 
     if mode == "manual":
-        g["manual_calorie_target"] = int(_prompt_float("Manual calorie target (kcal/day): ", min_=1, default=g.get("manual_calorie_target")))
+        g["manual_calorie_target"] = int(prompt_float("Manual calorie target (kcal/day): ", min_=1, default=g.get("manual_calorie_target")))
     else:
         g["manual_calorie_target"] = None
 

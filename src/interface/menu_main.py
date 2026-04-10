@@ -13,7 +13,7 @@ from core.console_manager import cprint, cinput, clear_console
 from core.data_manager import Environment
 
 from core.menu_manager import get_menu
-from interface.common import MenuItem,build_menu_panel,run_menu_action 
+from interface.shared import MenuItem,build_menu_panel,run_menu_action 
 
 def run_main_menu(env: Environment) -> None: 
     FOOD_DIARY_MENU = "food_diary_menu" 

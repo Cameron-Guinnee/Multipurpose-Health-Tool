@@ -8,8 +8,7 @@ from typing import Any, Dict, List, Optional
 from rich.table import Table
 from rich.text import Text
 
-from interface.prompts import _prompt_str, _prompt_float, _prompt_choice
-from interface.common import MenuItem, build_menu_panel, run_menu_action
+from interface.shared import prompt_str, prompt_float, prompt_choice, MenuItem, build_menu_panel, run_menu_action
 
 from core.console_manager import cprint, cinput, clear_console, get_console
 from core.data_manager import (
@@ -306,14 +305,14 @@ def _log_weight(d: date, units: str, env: Environment) -> None:
     """Prompt for weight and optionally sync to profile if d == today.
     Always stores in kg (canonical metric unit)."""
     if units == "imperial":
-        val_lbs = _prompt_float("Weight (lbs): ", min_=1.0)
+        val_lbs = prompt_float("Weight (lbs): ", min_=1.0)
         if val_lbs is None:
             return
         weight_kg    = round(val_lbs / 2.20462, 2)
         display_val  = round(val_lbs, 1)
         display_unit = "lbs"
     else:
-        weight_kg = _prompt_float("Weight (kg): ", min_=1.0)
+        weight_kg = prompt_float("Weight (kg): ", min_=1.0)
         if weight_kg is None:
             return
         weight_kg    = round(weight_kg, 2)
@@ -336,10 +335,10 @@ def _log_weight(d: date, units: str, env: Environment) -> None:
 def _log_blood_pressure(d: date) -> None:
     """Prompt for systolic + diastolic and save as two linked entries."""
     cprint("\n[dim]Blood pressure is stored as systolic / diastolic (mmHg).[/dim]\n")
-    systolic = _prompt_float("Systolic (upper number): ", min_=50.0)
+    systolic = prompt_float("Systolic (upper number): ", min_=50.0)
     if systolic is None:
         return
-    diastolic = _prompt_float("Diastolic (lower number): ", min_=20.0)
+    diastolic = prompt_float("Diastolic (lower number): ", min_=20.0)
     if diastolic is None:
         return
     note = cinput("Note (optional): ").strip()
@@ -357,14 +356,14 @@ def _log_blood_pressure(d: date) -> None:
 def _log_waist(d: date, units: str) -> None:
     """Prompt for waist in the user's preferred unit; always store in cm."""
     if units == "imperial":
-        val_in = _prompt_float("Waist (in): ", min_=10.0)
+        val_in = prompt_float("Waist (in): ", min_=10.0)
         if val_in is None:
             return
         waist_cm     = round(val_in * 2.54, 2)
         display_val  = round(val_in, 1)
         display_unit = "in"
     else:
-        waist_cm = _prompt_float("Waist (cm): ", min_=25.0)
+        waist_cm = prompt_float("Waist (cm): ", min_=25.0)
         if waist_cm is None:
             return
         waist_cm     = round(waist_cm, 2)
@@ -385,7 +384,7 @@ def _log_simple(
     unit: str,
     min_: float = 0.0,
 ) -> None:
-    val = _prompt_float(f"{label} ({unit}): ", min_=min_)
+    val = prompt_float(f"{label} ({unit}): ", min_=min_)
     if val is None:
         return
     note  = cinput("Note (optional): ").strip()
