@@ -93,7 +93,7 @@ def _wizard_profile(env: Environment, units: str) -> None:
         imperial_weight = prompt_float(
             "Weight (lb): ", 
             min_=1, 
-            default=profile.get("weight_kg")*2.2046 if profile.get("weight_cm") else None
+            default=profile.get("weight_kg")*2.2046 if profile.get("weight_kg") else None
         )
         imperial_height = prompt_float(
             "Height (inches): ", 
