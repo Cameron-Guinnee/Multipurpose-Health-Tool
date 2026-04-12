@@ -1,0 +1,19 @@
+# Multipurpose Health Tool — dependencies
+# Requires Python 3.10+ (match/case syntax used throughout)
+
+# ── Terminal UI ───────────────────────────────────────────────────────────────
+rich>=13.0.0                # Rich text, tables, panels, progress bars, Live display
+questionary>=2.1.0          # Interactive terminal prompts (select, confirm, autocomplete)
+
+# ── Charts ────────────────────────────────────────────────────────────────────
+plotly>=5.0.0               # Biometric trend charts rendered to HTML
+
+# ── Data validation & config ─────────────────────────────────────────────────
+pydantic>=2.0.0             # Data models, validation, and JSON serialisation
+
+# ── Dates & paths ────────────────────────────────────────────────────────────
+python-dateutil>=2.9.0      # Flexible date parsing for user input
+platformdirs>=4.0.0         # OS-appropriate user data directory (replaces hardcoded src/data/)
+
+# ── Fuzzy search ─────────────────────────────────────────────────────────────
+thefuzz>=0.22.0             # Fuzzy string matching for food search fallback and custom collections
