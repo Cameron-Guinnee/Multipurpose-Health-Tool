@@ -28,6 +28,8 @@ except Exception:  # pragma: no cover
 # ----------------------------
 # Paths
 # ----------------------------
+
+# TODO: Remove platformdirs from requirements.txt, since this line isn't that problematic  
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 

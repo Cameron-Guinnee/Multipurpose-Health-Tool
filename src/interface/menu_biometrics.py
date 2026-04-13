@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from rich.table import Table
 from rich.text import Text
 
-from interface.shared import prompt_str, prompt_float, prompt_choice, MenuItem, build_menu_panel, run_menu_action
+from interface.shared import prompt_str, prompt_float, prompt_choice, prompt_date, MenuItem, build_menu_panel, run_menu_action
 
 from core.console_manager import cprint, cinput, clear_console, get_console
 from core.data_manager import (
@@ -93,7 +93,8 @@ def run_biometrics_menu(env: Environment) -> None:
         cprint(build_menu_panel("Biometrics", items, note="Select an option."))
 
         choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower()
-
+        
+        # Date navigation
         match choice:
             case "<":
                 viewed_date -= timedelta(days=1)
@@ -106,7 +107,7 @@ def run_biometrics_menu(env: Environment) -> None:
                 viewed_date = today
                 continue
             case "g":
-                jumped = _prompt_date(today)
+                jumped = prompt_date(today)
                 if jumped is not None:
                     viewed_date = jumped
                 continue
@@ -116,38 +117,6 @@ def run_biometrics_menu(env: Environment) -> None:
         if not run_menu_action(items, choice, env):
             cprint("[yellow]Invalid choice. Press Enter to try again.[/yellow]")
             cinput("")
-
-
-# ---------------------------------------------------------------------------
-# Date navigation
-# ---------------------------------------------------------------------------
-
-def _prompt_date(today: date) -> Optional[date]:
-    """Accept YYYY-MM-DD, MM-DD, or MM/DD. Reject future dates."""
-    cprint("\n[dim]Enter a date — formats: YYYY-MM-DD, MM-DD, or MM/DD (blank to cancel)[/dim]")
-    raw = cinput("Date: ").strip()
-    if not raw:
-        return None
-
-    normalized = raw.replace("/", "-")
-    parsed: Optional[date] = None
-    for fmt in ("%Y-%m-%d", "%m-%d"):
-        try:
-            candidate = normalized if fmt != "%m-%d" else f"{today.year}-{normalized}"
-            parsed = date.fromisoformat(candidate)
-            break
-        except ValueError:
-            continue
-
-    if parsed is None:
-        cprint("[yellow]Couldn't parse that date. Try YYYY-MM-DD or MM-DD.[/yellow]")
-        cinput("Press Enter to continue.")
-        return None
-    if parsed > today:
-        cprint("[yellow]Can't navigate to a future date.[/yellow]")
-        cinput("Press Enter to continue.")
-        return None
-    return parsed
 
 
 # ---------------------------------------------------------------------------

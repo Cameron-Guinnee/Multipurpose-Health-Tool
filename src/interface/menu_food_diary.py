@@ -26,7 +26,7 @@ from core.log_manager import (
 from core.fdc_importer import search_foods, db_stats
 from core.data_manager import DATA_DIR
 
-from interface.shared import MenuItem, build_menu_panel, run_menu_action, prompt_str, prompt_float, prompt_choice
+from interface.shared import MenuItem, build_menu_panel, run_menu_action, prompt_str, prompt_float, prompt_choice, prompt_date
 
 FDC_DB_PATH = DATA_DIR / "fdc" / "fdc.db"
 _FDC_SEARCH_LIMIT = 15
@@ -171,6 +171,7 @@ def run_food_diary_menu(env: Environment) -> None:
     
         choice = cinput("\n[bold magenta]Choice[/bold magenta]: ").strip().lower()
     
+        # Date navigation
         match choice: 
             case "<": 
                 viewed_date -= timedelta(days=1) 
@@ -183,7 +184,7 @@ def run_food_diary_menu(env: Environment) -> None:
                 viewed_date = today 
                 continue 
             case "g": 
-                jumped = _prompt_date(today) 
+                jumped = prompt_date(today) 
                 if jumped is not None: 
                     viewed_date = jumped 
                 continue 
@@ -194,37 +195,6 @@ def run_food_diary_menu(env: Environment) -> None:
             cprint("[yellow]Invalid choice. Press enter to try again.[/yellow]") 
             cinput("") 
    
-# ---------------------------------------------------------------------------
-# Date navigation
-# ---------------------------------------------------------------------------
-
-def _prompt_date(today: date) -> Optional[date]:
-    """Accepts YYYY-MM-DD, MM-DD, or MM/DD. Rejects future dates."""
-    cprint("\n[dim]Enter a date — formats: YYYY-MM-DD, MM-DD, or MM/DD (blank to cancel)[/dim]")
-    raw = cinput("Date: ").strip()
-    if not raw:
-        return None
-
-    normalized = raw.replace("/", "-")
-    parsed: Optional[date] = None
-    for fmt in ("%Y-%m-%d", "%m-%d"):
-        try:
-            candidate = normalized if fmt != "%m-%d" else f"{today.year}-{normalized}"
-            parsed = date.fromisoformat(candidate)
-            break
-        except ValueError:
-            continue
-
-    if parsed is None:
-        cprint("[yellow]Couldn't parse that date. Try YYYY-MM-DD or MM-DD.[/yellow]")
-        cinput("Press Enter to continue.")
-        return None
-    if parsed > today:
-        cprint("[yellow]Can't navigate to a future date.[/yellow]")
-        cinput("Press Enter to continue.")
-        return None
-    return parsed
-
 
 # ---------------------------------------------------------------------------
 # Renderers

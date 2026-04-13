@@ -8,6 +8,9 @@ from collections.abc import Iterable,Sequence
 from dataclasses import dataclass 
 from typing import Any,Callable 
 
+from datetime import date, datetime # datetime needed for dateutil default
+from dateutil import parser as dateutil_parser
+
 from rich.panel import Panel 
 from rich.table import Table 
 from rich.text import Text 
@@ -134,3 +137,23 @@ def prompt_choice(prompt: str, *, choices: tuple, default: str) -> str:
         if s in choices_set:
             return s
         cprint(f"[yellow]Choose one of: {', '.join(choices)}[/yellow]")
+        
+
+def prompt_date(today: date, allow_future: bool = False) -> Optional[date]: 
+    cprint("\n[dim]Enter a date (blank to cancel)[/dim]") 
+    raw = cinput("Date: ").strip() 
+    
+    if not raw: 
+        return None 
+    try: 
+        parsed = dateutil_parser.parse(raw, default=datetime(today.year, 1, 1)).date()
+    except dateutil_parser.ParserError: 
+        cprint("[yellow]Couldn't parse that date. Try something like 2025-01-05 or Jan 5.[/yellow]") 
+        cinput("Press Enter to continue.") 
+        return None 
+    
+    if not allow_future and parsed > today: 
+        cprint("[yellow]Can't navigate to a future date.[/yellow]") 
+        cinput("Press Enter to continue.") 
+        return None 
+    return parsed 
