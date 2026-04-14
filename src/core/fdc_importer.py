@@ -19,7 +19,7 @@ Deduplication:
 
 from __future__ import annotations
 
-import json
+import orjson
 import sqlite3
 import zipfile
 from pathlib import Path
@@ -63,10 +63,10 @@ def _load_json(path: Path) -> dict:
             if not json_names:
                 raise ValueError(f"No .json file found inside {path.name}")
             with zf.open(json_names[0]) as f:
-                return json.load(f)
+                return orjson.loads(f.read())
     else:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        with path.open("rb") as f:
+            return orjson.loads(f.read())
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +339,7 @@ def build_database(
         db_path.unlink()
 
     conn = sqlite3.connect(db_path)
+    
     try:
         conn.executescript(_DDL)
         conn.commit()

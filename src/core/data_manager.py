@@ -11,7 +11,8 @@ This module is intentionally dependency-light and safe to port across projects.
 
 from __future__ import annotations
 
-import json
+import orjson
+
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -28,8 +29,7 @@ except Exception:  # pragma: no cover
 # ----------------------------
 # Paths
 # ----------------------------
-
-# TODO: Remove platformdirs from requirements.txt, since this line isn't that problematic  
+ 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 
@@ -113,8 +113,8 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     """Atomically save JSON data to disk."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    with tmp.open("wb") as f:
+        f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2)) 
     os.replace(tmp, path)
 
 
@@ -164,8 +164,8 @@ def load_json(path: Path) -> Dict[str, Any]:
         return defaults
 
     try:
-        with path.open("r", encoding="utf-8") as f:
-            loaded = json.load(f)
+        with path.open("rb") as f:
+            loaded = orjson.loads(f.read())
     except json.JSONDecodeError:
         backup = _backup_corrupt_file(path)
         if backup:

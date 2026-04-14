@@ -7,5 +7,8 @@ rich>=13.0.0                # Rich text, tables, panels, progress bars, Live dis
 # ── Charts ────────────────────────────────────────────────────────────────────
 plotly>=5.0.0               # Biometric trend charts rendered to HTML
 
+# ── JSON Handling ────────────────────────────────────────────────────────────────────
+orjson >= 3.10,<4           # 2-10x faster than stdlib json library, depending on the file size 
+
 # ── Dates & paths ────────────────────────────────────────────────────────────
 python-dateutil>=2.9.0      # Flexible date parsing for user input
